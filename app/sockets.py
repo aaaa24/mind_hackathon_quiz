@@ -2,7 +2,7 @@ from typing import Dict
 from flask import request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from . import storage
-from .models import RoomStatus, Question
+from .models import RoomStatus, Question, Player
 
 socketio = SocketIO()
 
@@ -13,6 +13,22 @@ def init_socketio(app):
 
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
+
+
+
+def serialize_player(player):
+    return {
+        "user_id": player.user_id,
+        "username": player.username,
+        "score": player.score,
+        "correct": player.correct,
+        "answered": player.answered,
+        "answer": player.answer,
+        "joined_at": player.joined_at.isoformat() if player.joined_at else None
+    }
+
+def serialize_players(players):
+    return [serialize_player(player) for player in players]
 
 
 @socketio.on("join_room")
@@ -130,3 +146,15 @@ def update_leaderboard(data):
         res.append(r)
     res.sort(key=lambda x: [x['score']], reverse=True)
     emit("update_leaderboard", vars(res), to=room_id)
+
+
+@socketio.on("all_players_in_lobby")
+def all_players_in_lobby(data):
+    room_id = data['room_id']
+    room = storage.rooms.get(room_id)
+    if room is None:
+        emit("error", {"message": "Room not found"}, to=room_id)
+        return
+    players = {"players": serialize_players(room.players.values())}
+    emit("all_players_in_lobby", players, to=room_id)
+
