@@ -1,11 +1,11 @@
+from datetime import datetime, timedelta, timezone
 import secrets
-from typing import Dict
 import uuid
 
 from flask import Blueprint, jsonify, request, make_response
 from flask_jwt_extended import jwt_required, create_access_token, set_access_cookies, unset_jwt_cookies, \
     get_jwt_identity
-from .models import Room, Player, Question, RoomStatus
+from .models import Room, Player, RoomStatus
 
 from . import fake_db as db
 from . import storage
@@ -31,7 +31,7 @@ def signup():
     if not result['success']:
         return jsonify({'message': 'User already exists'}), 400
 
-    return jsonify({'message': 'User signed up successfully'}), 201
+    return jsonify({'status': 'OK'}), 201
 
 
 @bp.route('/user/signin', methods=['POST'])
@@ -49,7 +49,7 @@ def signin():
         return jsonify({'message': 'Invalid login or password'}), 401
 
     access_token = create_access_token(identity=result['user_id'])
-    resp = make_response(jsonify({'message': 'User signed in successfully'}), 200)
+    resp = make_response(jsonify({'status': 'OK'}), 200)
     set_access_cookies(resp, access_token)
 
     return resp
@@ -58,7 +58,7 @@ def signin():
 @bp.route('/user/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    resp = make_response(jsonify({'message': 'User logged out successfully'}), 200)
+    resp = make_response(jsonify({'status': 'OK'}), 200)
     unset_jwt_cookies(resp)
 
     return resp
@@ -80,6 +80,10 @@ def me():
 @bp.route('/rooms/create', methods=['POST'])
 @jwt_required()
 def create_room():
+    data = request.json
+    count_questions = data.get('count_questions')
+    category_ids = data.get('count_questions')
+
     user_id = get_jwt_identity()
 
     user = db.get_user(user_id)
@@ -96,6 +100,14 @@ def create_room():
     player = Player(user_id=user_id, username=username)
     new_room.players[user_id] = player
     new_room.owner = player
+
+    # Загружаем вопросы
+    questions = db.get_questions(count_questions=count_questions, category_ids=category_ids)
+    if not questions['success']:
+        return jsonify({'message': 'No questions available'}), 500
+
+    new_room.questions = questions
+    new_room.current_question_index = 0
 
     # Сохраняем комнату в БД
     storage.rooms[room_id] = new_room
@@ -144,7 +156,7 @@ def join_room_by_code():
     player = Player(user_id=user_id, username=username)
     room.players[user_id] = player
 
-    return jsonify({'message': 'Joined room successfully', 'room_id': room_id}), 200
+    return jsonify({'room_id': room_id}), 200
 
 
 @bp.route('/rooms/<room_id>/start', methods=['POST'])
@@ -172,18 +184,9 @@ def start_room(room_id: str):
     # Меняем статус комнаты
     room.status = RoomStatus.QUESTION
 
-    # Загружаем вопросы
-    questions = db.get_questions()
-    if not questions:
-        return jsonify({'message': 'No questions available'}), 500
-
-    room.questions = questions
-    room.current_question_index = 0
-
     # Устанавливаем таймер для первого вопроса
-    import datetime
-    question_time_limit = room.questions[0].time_limit  # предположим, у Question есть time_limit
-    room.timer_end = datetime.datetime.utcnow() + datetime.timedelta(seconds=question_time_limit)
+    question_time_limit = room.questions[0].time_limit
+    room.timer_end = datetime.now(timezone.utc) + timedelta(seconds=question_time_limit)
 
     # Сбрасываем флаги answered для всех игроков
     for player in room.players.values():
@@ -196,3 +199,12 @@ def start_room(room_id: str):
         'current_question': room.questions[0],
         'timer_end': room.timer_end.isoformat()
     }), 200
+
+
+@bp.route('/categories/get_list', methods=['GET'])
+@jwt_required()
+def get_categories_list():
+    categories = db.get_categories()
+    if not categories['success']:
+        return jsonify({'message': 'No categories available'}), 500
+    return jsonify({'categories': categories['categories']})

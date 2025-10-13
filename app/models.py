@@ -33,7 +33,7 @@ class Question:
     text: str
     options: List[str]
     correct_answer: str
-    time_limit: int  # seconds
+    time_limit: int
 
 
 @dataclass
