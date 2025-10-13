@@ -33,7 +33,7 @@ class Question:
     text: str
     options: List[str]
     correct_answer: str
-    time_limit: int  # seconds
+    time_limit: int
 
 
 @dataclass
@@ -46,3 +46,4 @@ class Room:
     current_question_index: int = -1
     timer_end: Optional[datetime] = None
     leaderboard: List[dict] = field(default_factory=list)
+    max_players: int = 10
