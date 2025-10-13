@@ -1,3 +1,4 @@
+import json
 import mysql.connector
 import bcrypt
 import os
@@ -54,6 +55,15 @@ def get_user(user_id):
         return {"success": False, "login": None}
 
 
+def create_question(category_id, text, options, correct_answer, time_limit=30):
+    options = json.dumps({"list": options})
+    if put_to_bd(
+            "INSERT INTO questions (category_id, text, options, correct_answer, time_limit) VALUES (%s,%s,%s,%s,%s)",
+            (category_id, text, options, correct_answer, time_limit)):
+        return {"success": True}
+    return {"success": False}
+
+
 def save_room(room: Room):
     room_id = room.room_id
     owner = room.owner
@@ -61,10 +71,9 @@ def save_room(room: Room):
     amount = len(room.questions)
     put_room = put_to_bd("INSERT INTO rooms (id, owner, end, amount) VALUES (%s,%s,%s,%s)",
                          (room_id, owner, end, amount))
-    players = room.players
     sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
     params = []
-    for player in players:
+    for player in room.players:
         params.append(room_id, player.user_id, player.score, player.correct)
         sql += ' (%s,%s,%s,%s), '
     sql = sql[:-2]
@@ -82,7 +91,7 @@ def get_categories():
     if data:
         categories = []
         for category in data:
-            categories.append({"id": str(category["id"].uuid4()), "name": category["name"]})
+            categories.append({"id": category["id"], "name": category["name"]})
         return {"success": True, "categories": [categories]}
     else:
         return {"success": False, "categories": None}
@@ -91,16 +100,18 @@ def get_categories():
 def get_questions(count_questions, category_ids):
     if not count_questions: count_questions = 10
     sql = "SELECT * FROM questions "
-    if category_ids: sql += f'WHERE id in %s '
+    if category_ids:
+        placeholders = ', '.join(['%s'] * len(category_ids))
+        sql += f'WHERE category_id in ({placeholders}) '
     sql += 'ORDER BY RAND() LIMIT %s;'
-    data = get_from_bd("SELECT * FROM questions ", (category_ids, count_questions))
+    data = get_from_bd(sql, (*category_ids, count_questions))
     if data:
         questions = []
         for question in data:
             questions.append(
-                Question(id=str(question['id'].uuid4()),
+                Question(id=question['id'],
                          text=question['text'],
-                         options=question['options']["list"],
+                         options=json.loads(question['options'])["list"],
                          correct_answer=question['correct_answer'],
                          time_limit=question['time_limit']))
         return {'success': True, 'questions': questions}
@@ -160,5 +171,12 @@ def bd_connect():
             return mydb
     return None
 
-
-print(sign_in("Danil", "12345"))
+# print(sign_in("Danil", "12345"))
+# id1 = '572d2207-a841-11f0-8d77-cc28aa8d5d25'
+# id2 = '1a4350d1-a841-11f0-8d77-cc28aa8d5d25'
+# for i in range(15):
+#     print(create_question(id1, f"Test_Кино_{i} Какой фильм называют «самым известным ужастиком о душе, которая живёт в воде»?", ["«Сияние»", "«Пила»", "«Звонок»", "«Чужой»"], "Звонок", 10+i))
+#     print(create_question(id2, f"Test_Программирование_{i} Как вывести текст в консоль в python?", ["print()", "write()", "save()", "foo()", "bar()"], "print()", 10+i))
+# print(get_categories())
+# print(get_questions(5, [id1]))
+# print(get_questions(7, [id1, id2]))

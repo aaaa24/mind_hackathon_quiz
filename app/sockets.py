@@ -1,4 +1,3 @@
-from logging import Logger
 from typing import Dict
 from flask import request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
@@ -19,23 +18,25 @@ questPosition: Dict[str, int] = {}
 @socketio.on("join_room")
 def join_game_room(data):
     room_id = data['room_id']
+
     user_id = data['user_id']
     room = storage.rooms.get(room_id, None)
     if(room.players.get(user_id) is None):
         emit("Error", "This user is not in room")
     else:
-        Logger.debug(msg=f"Received data = {data}")
+        print(f"Received data = {data}")
         join_room(room_id)
 
 
 @socketio.on("start_quiz")
 def start_quiz(data):
     room_id = data["room_id"]
-
+    print(data)
     room = storage.rooms.get(room_id)
 
     if room is None:
         emit("error", {"message": f"Room {room_id} not found"})
+        print("Vse huina")
         return
 
     if not room.questions or len(room.questions) == 0:
@@ -51,7 +52,8 @@ def start_quiz(data):
 
     firstQuest = room.questions[questPosition[room_id]]
     room.status = RoomStatus.QUESTION
-    emit("startGame", firstQuest, to=room_id)
+    emit("startGame", vars(firstQuest), to=room_id)
+
 
 
 
@@ -95,7 +97,7 @@ def next_question(data):
         next_question_position = questPosition.get(room_id) + 1
         next_quest = questions[next_question_position]
         questPosition[room_id] = next_question_position
-        emit("next_quest", next_quest, to=room_id)
+        emit("next_quest", vars(next_quest), to=room_id)
 
 
 @socketio.on("show_result")
@@ -110,7 +112,7 @@ def show_results(data):
         }
         res.append(r)
     res.sort(key = lambda x : [x['score']], reverse=True)
-    emit("result", res, to=room_id)
+    emit("result", vars(res), to=room_id)
 
 
 
@@ -127,4 +129,4 @@ def update_leaderboard(data):
         }
         res.append(r)
     res.sort(key=lambda x: [x['score']], reverse=True)
-    emit("update_leaderboard", res, to=room_id)
+    emit("update_leaderboard", vars(res), to=room_id)
