@@ -74,7 +74,7 @@ def me():
     if not user['success']:
         return jsonify({'message': 'User not found'}), 404
 
-    return jsonify({'login': user['login']}), 200
+    return jsonify({'login': user['login'], 'user_id': user_id}), 200
 
 
 @bp.route('/rooms/create', methods=['POST'])
