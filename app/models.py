@@ -21,6 +21,12 @@ class Player:
 
 
 @dataclass
+class Category:
+    id: str
+    name: str
+
+
+@dataclass
 class Question:
     id: str
     text: str
@@ -32,6 +38,7 @@ class Question:
 @dataclass
 class Room:
     room_id: str
+    owner: Optional[Player] = None
     status: RoomStatus = RoomStatus.WAITING
     players: Dict[str, Player] = field(default_factory=dict)
     questions: List[Question] = field(default_factory=list)

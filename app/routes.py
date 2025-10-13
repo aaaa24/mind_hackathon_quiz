@@ -8,10 +8,9 @@ from flask_jwt_extended import jwt_required, create_access_token, set_access_coo
 from .models import Room, Player, Question, RoomStatus
 
 from . import fake_db as db
+from . import storage
 
 bp = Blueprint('main', __name__)
-
-room_codes: Dict[str, str] = {}
 
 
 def generate_code(length: int = 6) -> str:
@@ -96,15 +95,14 @@ def create_room():
     # Добавляем создателя
     player = Player(user_id=user_id, username=username)
     new_room.players[user_id] = player
+    new_room.owner = player
 
     # Сохраняем комнату в БД
-    result_creation = db.create_room(new_room)
-    if not result_creation['success']:
-        return jsonify({'message': 'Room creation failed'}), 500
+    storage.rooms[room_id] = new_room
 
     # Генерируем код и сохраняем сопоставление
     code = generate_code()
-    room_codes[code] = room_id
+    storage.room_codes[code] = room_id
 
     return jsonify({'room_code': code}), 201
 
@@ -118,7 +116,7 @@ def join_room_by_code():
     if not code:
         return jsonify({'message': 'Room code is required'}), 400
 
-    room_id = room_codes.get(code)
+    room_id = storage.room_codes.get(code)
     if not room_id:
         return jsonify({'message': 'Room not found'}), 404
 
@@ -130,12 +128,10 @@ def join_room_by_code():
 
     username = user['login']
 
-    # Получаем комнату из БД
-    room_data = db.get_room(room_id)
-    if not room_data['success']:
+    # Получаем комнату из памяти
+    room = storage.rooms.get(room_id)
+    if not room:
         return jsonify({'message': 'Room not found'}), 404
-
-    room = room_data['room']
 
     # Проверки
     if user_id in room.players:
@@ -144,11 +140,59 @@ def join_room_by_code():
     if room.status != RoomStatus.WAITING:
         return jsonify({'message': 'Quiz has already started'}), 400
 
-    # Добавляем игрока
+    # Добавляем игрока в память
     player = Player(user_id=user_id, username=username)
     room.players[user_id] = player
 
-    # Обновляем комнату в БД
-    db.update_room(room)
-
     return jsonify({'message': 'Joined room successfully', 'room_id': room_id}), 200
+
+
+@bp.route('/rooms/<room_id>/start', methods=['POST'])
+@jwt_required()
+def start_room(room_id: str):
+    user_id = get_jwt_identity()
+
+    # Получаем комнату из памяти
+    room = storage.rooms.get(room_id)
+    if not room:
+        return jsonify({'message': 'Room not found'}), 404
+
+    # Проверяем, что пользователь — владелец комнаты
+    if room.owner.user_id != user_id:
+        return jsonify({'message': 'Only the room owner can start the quiz'}), 403
+
+    # Проверяем, что викторина ещё не начата
+    if room.status != RoomStatus.WAITING:
+        return jsonify({'message': 'Quiz has already started or is finished'}), 400
+
+    # Проверяем, что в комнате есть хотя бы 1 игрок
+    if len(room.players) < 1:
+        return jsonify({'message': 'Not enough players to start the quiz'}), 400
+
+    # Меняем статус комнаты
+    room.status = RoomStatus.QUESTION
+
+    # Загружаем вопросы
+    questions = db.get_questions()
+    if not questions:
+        return jsonify({'message': 'No questions available'}), 500
+
+    room.questions = questions
+    room.current_question_index = 0
+
+    # Устанавливаем таймер для первого вопроса
+    import datetime
+    question_time_limit = room.questions[0].time_limit  # предположим, у Question есть time_limit
+    room.timer_end = datetime.datetime.utcnow() + datetime.timedelta(seconds=question_time_limit)
+
+    # Сбрасываем флаги answered для всех игроков
+    for player in room.players.values():
+        player.answered = False
+        player.answer = None
+
+    # Возвращаем ответ
+    return jsonify({
+        'message': 'Quiz started successfully',
+        'current_question': room.questions[0],
+        'timer_end': room.timer_end.isoformat()
+    }), 200

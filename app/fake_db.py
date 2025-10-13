@@ -1,6 +1,6 @@
 import uuid
 
-from models import Room
+from .models import Room
 
 
 def sign_up(login, password):
