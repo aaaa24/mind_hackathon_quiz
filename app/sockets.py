@@ -1,4 +1,3 @@
-from logging import Logger
 from typing import Dict
 from flask import request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
@@ -17,15 +16,45 @@ questPosition: Dict[str, int] = {}
 
 
 @socketio.on("join_room")
-def join_room(data):
+def join_game_room(data):
     room_id = data['room_id']
-    Logger.debug(msg=f"Received data = {data}")
-    join_room(room_id)
+
+    user_id = data['user_id']
+    room = storage.rooms.get(room_id, None)
+    if(room.players.get(user_id) is None):
+        emit("Error", "This user is not in room")
+    else:
+        print(f"Received data = {data}")
+        join_room(room_id)
 
 
 @socketio.on("start_quiz")
-def start_quiz():
-    pass
+def start_quiz(data):
+    room_id = data["room_id"]
+    print(data)
+    room = storage.rooms.get(room_id)
+
+    if room is None:
+        emit("error", {"message": f"Room {room_id} not found"})
+        print("Vse huina")
+        return
+
+    if not room.questions or len(room.questions) == 0:
+        emit("error", {"message": "No questions in this room"})
+        return
+
+    questPosition[room_id] = 0
+    for player in room.players.values():
+        player.score = 0
+        player.correct = 0
+        player.answer = ""
+        player.answered = False
+
+    firstQuest = room.questions[questPosition[room_id]]
+    room.status = RoomStatus.QUESTION
+    emit("startGame", vars(firstQuest), to=room_id)
+
+
 
 
 @socketio.on("answer")
@@ -57,16 +86,18 @@ def next_question(data):
     for i in players:
         if(i.answered and i.answer == lastAnswer):
             i.score += 10
+            i.correct += 1
         i.answered = False
         i.answer = ""
 
-    if (questPosition.get(room_id) == len(questPosition)):
+    if (questPosition.get(room_id) == len(questions)-1):
+        room.status = RoomStatus.FINISHED
         emit("EndOfGame", to=room_id)
     else:
         next_question_position = questPosition.get(room_id) + 1
         next_quest = questions[next_question_position]
         questPosition[room_id] = next_question_position
-        emit("next_quest", next_quest, to=room_id)
+        emit("next_quest", vars(next_quest), to=room_id)
 
 
 @socketio.on("show_result")
@@ -81,7 +112,7 @@ def show_results(data):
         }
         res.append(r)
     res.sort(key = lambda x : [x['score']], reverse=True)
-    emit("result", res, to=room_id)
+    emit("result", vars(res), to=room_id)
 
 
 
@@ -98,4 +129,4 @@ def update_leaderboard(data):
         }
         res.append(r)
     res.sort(key=lambda x: [x['score']], reverse=True)
-    emit("update_leaderboard", res, to=room_id)
+    emit("update_leaderboard", vars(res), to=room_id)

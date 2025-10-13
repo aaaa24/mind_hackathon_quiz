@@ -1,13 +1,13 @@
 from enum import Enum
 from typing import Dict, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
 
 class RoomStatus(str, Enum):
-    WAITING = "waiting"
-    QUESTION = "question"
-    FINISHED = "finished"
+    WAITING = 'waiting'
+    QUESTION = 'question'
+    FINISHED = 'finished'
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Player:
     correct: int = 0
     answered: bool = False
     answer: Optional[str] = None
-    joined_at: datetime = field(default_factory=datetime.utcnow)
+    joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
