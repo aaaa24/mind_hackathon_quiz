@@ -1,0 +1,40 @@
+from enum import Enum
+from typing import Dict, Optional, List
+from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+
+
+class RoomStatus(str, Enum):
+    WAITING = "waiting"
+    QUESTION = "question"
+    FINISHED = "finished"
+
+
+@dataclass
+class Player:
+    user_id: str
+    username: str
+    score: int = 0
+    answered: bool = False
+    answer: Optional[str] = None
+    joined_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class Question:
+    id: str
+    text: str
+    options: List[str]
+    correct_answer: str
+    time_limit: int  # seconds
+
+
+@dataclass
+class Room:
+    room_id: str
+    status: RoomStatus = RoomStatus.WAITING
+    players: Dict[str, Player] = field(default_factory=dict)
+    questions: List[Question] = field(default_factory=list)
+    current_question_index: int = -1
+    timer_end: Optional[datetime] = None
+    leaderboard: List[dict] = field(default_factory=list)
