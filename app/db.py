@@ -2,7 +2,8 @@ import mysql.connector
 import bcrypt
 import os
 from dotenv import load_dotenv
-#from datetime import  datetime
+from app.models import Room
+
 load_dotenv()
 
 
@@ -34,7 +35,7 @@ def sign_up(username, password):
 
 def sign_in(username, password):
     if username == '' or password == '': return {'success': False}
-    data = get_from_bd('SELECT id, password_hash FROM users WHERE username = (%s)', (username,), one_row=True)
+    data = get_from_bd('SELECT id, password_hash FROM users WHERE username = (%s)', [username], one_row=True)
     if not data:
         return {'success': False, 'user_id': None}
     password_hash = data['password_hash']
@@ -53,6 +54,27 @@ def get_user(user_id):
         return {"success": False, "login": None}
 
 
+def save_room(room: Room):
+    room_id = room.room_id
+    owner = room.owner
+    end = room.timer_end
+    amount = len(room.questions)
+    put_room = put_to_bd("INSERT INTO rooms (id, owner, end, amount) VALUES (%s,%s,%s,%s)",
+                         (room_id, owner, end, amount))
+    players = room.players
+    sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
+    params = []
+    for player in players:
+        params.append(room_id, player.user_id, player.score, player.correct)
+        sql += ' (%s,%s,%s,%s), '
+    sql = sql[:-2]
+    sql += ';'
+    put_players = put_to_bd("INSERT INTO rooms_users (id, user_id, score, correct) VALUES (%s,%s,%s)",
+                            (room_id, owner, end))
+    if put_room and put_players:
+        return {'success': True}
+    else:
+        return {'success': False}
 
 
 def put_to_bd(sql, params=None):
@@ -89,8 +111,6 @@ def get_from_bd(sql, params=None, one_row=False):
             return None
 
 
-
-
 def bd_connect():
     k = 0
     while k <= 5:
@@ -110,5 +130,4 @@ def bd_connect():
     return None
 
 
-
-
+print(sign_in("Danil", "12345"))
