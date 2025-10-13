@@ -34,6 +34,7 @@ class Question:
     options: List[str]
     correct_answer: str
     time_limit: int
+    category_id: str
 
 
 @dataclass

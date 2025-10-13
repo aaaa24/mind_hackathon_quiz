@@ -27,14 +27,16 @@ def get_questions(count_questions, category_ids):
             text='Question 1',
             options=['Option 1', 'Option 2', 'Option 3'],
             correct_answer='Option 1',
-            time_limit=10
+            time_limit=10,
+            category_id='Что-то'
         ),
         Question(
             id=str(uuid.uuid4()),
             text='Question 2',
             options=['Option 4', 'Option 5', 'Option 6'],
             correct_answer='Option 4',
-            time_limit=10
+            time_limit=10,
+            category_id='Что-то'
         ),
     ]
     return {'success': True, 'questions': questions}
