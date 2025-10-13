@@ -15,6 +15,7 @@ class Player:
     user_id: str
     username: str
     score: int = 0
+    correct: int = 0
     answered: bool = False
     answer: Optional[str] = None
     joined_at: datetime = field(default_factory=datetime.utcnow)
