@@ -2,7 +2,7 @@ import mysql.connector
 import bcrypt
 import os
 from dotenv import load_dotenv
-from app.models import Room
+from app.models import Room, Question
 
 load_dotenv()
 
@@ -24,7 +24,7 @@ def is_password_true(password, password_hash):
 def sign_up(username, password):
     if username == '' or password == '': return {'success': False}
     password_hash = create_hash(password)
-    if get_from_bd('SELECT id FROM users WHERE username = (%s)', (username,)):
+    if get_from_bd('SELECT id FROM users WHERE username = (%s)', (username,), one_row=True):
         return {'success': False}
     else:
         if put_to_bd('INSERT INTO users (username, password_hash) VALUES (%s,%s)', (username, password_hash)):
@@ -75,6 +75,37 @@ def save_room(room: Room):
         return {'success': True}
     else:
         return {'success': False}
+
+
+def get_categories():
+    data = get_from_bd("SELECT * FROM categories")
+    if data:
+        categories = []
+        for category in data:
+            categories.append({"id": str(category["id"].uuid4()), "name": category["name"]})
+        return {"success": True, "categories": [categories]}
+    else:
+        return {"success": False, "categories": None}
+
+
+def get_questions(count_questions, category_ids):
+    if not count_questions: count_questions = 10
+    sql = "SELECT * FROM questions "
+    if category_ids: sql += f'WHERE id in %s '
+    sql += 'ORDER BY RAND() LIMIT %s;'
+    data = get_from_bd("SELECT * FROM questions ", (category_ids, count_questions))
+    if data:
+        questions = []
+        for question in data:
+            questions.append(
+                Question(id=str(question['id'].uuid4()),
+                         text=question['text'],
+                         options=question['options']["list"],
+                         correct_answer=question['correct_answer'],
+                         time_limit=question['time_limit']))
+        return {'success': True, 'questions': questions}
+    else:
+        return {'success': True, 'questions': None}
 
 
 def put_to_bd(sql, params=None):
