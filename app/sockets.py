@@ -26,6 +26,7 @@ def join_room(data):
 @socketio.on("start_quiz")
 def start_quiz(data):
     room_id = data["room_id"]
+
     room = storage.rooms.get(room_id)
 
     if room is None:
