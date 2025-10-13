@@ -19,8 +19,13 @@ questPosition: Dict[str, int] = {}
 @socketio.on("join_room")
 def join_room(data):
     room_id = data['room_id']
-    Logger.debug(msg=f"Received data = {data}")
-    join_room(room_id)
+    user_id = data['user_id']
+    room = storage.rooms.get(room_id)
+    if(room.players.get(user_id) is None):
+        emit("Error", "This user is not in room")
+    else:
+        Logger.debug(msg=f"Received data = {data}")
+        join_room(room_id)
 
 
 @socketio.on("start_quiz")
