@@ -3,6 +3,7 @@ from flask import request
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from . import storage
 from .models import RoomStatus, Question, Player
+from threading import Lock
 
 socketio = SocketIO()
 
@@ -13,7 +14,7 @@ def init_socketio(app):
 
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
-
+room_locks: Dict[str, Lock] = {}
 
 
 def serialize_player(player):
@@ -29,6 +30,23 @@ def serialize_player(player):
 
 def serialize_players(players):
     return [serialize_player(player) for player in players]
+
+def question_timer(room_id, time_limit):
+    socketio.sleep(time_limit)
+
+    room = storage.rooms.get(room_id)
+    if not room or room.status != RoomStatus.QUESTION:
+        return
+
+    current_question = room.questions[questPosition[room_id]]
+    correct_answer = current_question.correct_answer
+
+    emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+
+    socketio.sleep(15)
+    with room_locks[room_id]:
+        next_question({"room_id": room_id})
+
 
 
 @socketio.on("join_room")
@@ -88,7 +106,7 @@ def answer(data):
     user.answered = True
 
 
-@socketio.on("next_question")
+
 def next_question(data):
     room_id = data['room_id']
     room = storage.rooms.get(room_id)
@@ -99,12 +117,12 @@ def next_question(data):
     questions = room.questions
     lastAnswer = questions[questPosition[room_id]].correct_answer
     players = room.players.values()
-    for i in players:
-        if(i.answered and i.answer == lastAnswer):
-            i.score += 10
-            i.correct += 1
-        i.answered = False
-        i.answer = ""
+    for p in players:
+        if(p.answered and p.answer == lastAnswer):
+            p.score += 10
+            p.correct += 1
+        p.answered = False
+        p.answer = ""
 
     if (questPosition.get(room_id) == len(questions)-1):
         room.status = RoomStatus.FINISHED
@@ -114,6 +132,7 @@ def next_question(data):
         next_quest = questions[next_question_position]
         questPosition[room_id] = next_question_position
         emit("next_quest", vars(next_quest), to=room_id)
+        socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
 
 
 @socketio.on("show_result")
