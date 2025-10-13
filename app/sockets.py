@@ -17,10 +17,10 @@ questPosition: Dict[str, int] = {}
 
 
 @socketio.on("join_room")
-def join_room(data):
+def join_game_room(data):
     room_id = data['room_id']
     user_id = data['user_id']
-    room = storage.rooms.get(room_id)
+    room = storage.rooms.get(room_id, None)
     if(room.players.get(user_id) is None):
         emit("Error", "This user is not in room")
     else:
