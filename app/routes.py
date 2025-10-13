@@ -82,7 +82,7 @@ def me():
 def create_room():
     data = request.json
     count_questions = data.get('count_questions')
-    category_ids = data.get('count_questions')
+    category_ids = data.get('category_ids')
 
     user_id = get_jwt_identity()
 
@@ -106,7 +106,7 @@ def create_room():
     if not questions['success']:
         return jsonify({'message': 'No questions available'}), 500
 
-    new_room.questions = questions
+    new_room.questions = questions['questions']
     new_room.current_question_index = 0
 
     # Сохраняем комнату в БД
@@ -151,6 +151,9 @@ def join_room_by_code():
 
     if room.status != RoomStatus.WAITING:
         return jsonify({'message': 'Quiz has already started'}), 400
+
+    if len(room.players) >= room.max_players:
+        return jsonify({'message': 'Room is full'}), 400
 
     # Добавляем игрока в память
     player = Player(user_id=user_id, username=username)
@@ -201,10 +204,28 @@ def start_room(room_id: str):
     }), 200
 
 
-@bp.route('/categories/get_list', methods=['GET'])
+@bp.route('/categories/list', methods=['GET'])
 @jwt_required()
 def get_categories_list():
     categories = db.get_categories()
     if not categories['success']:
         return jsonify({'message': 'No categories available'}), 500
     return jsonify({'categories': categories['categories']})
+
+
+@bp.route('/rooms/list', methods=['GET'])
+@jwt_required()
+def list_rooms():
+    available_rooms = [
+        {
+            'room_id': room.room_id,
+            'owner': room.owner.username,
+            'player_count': len(room.players),
+            'max_players': room.max_players,
+            'room_code': code
+        }
+        for code, room_id in storage.room_codes.items()
+        for room in [storage.rooms.get(room_id)]
+        if room and room.status == RoomStatus.WAITING
+    ]
+    return jsonify({'rooms': available_rooms}), 200

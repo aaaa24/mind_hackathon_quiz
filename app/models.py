@@ -46,3 +46,4 @@ class Room:
     current_question_index: int = -1
     timer_end: Optional[datetime] = None
     leaderboard: List[dict] = field(default_factory=list)
+    max_players: int = 10
