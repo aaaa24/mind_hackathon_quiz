@@ -37,10 +37,14 @@ def create_app():
     app.logger.info('Flask app started')
 
     # Инициализируем SocketIO с приложением
-    socketio.init_app( app,
+    socketio.init_app(  app,
     cors_allowed_origins="*",
-    logger=True,        
-    engineio_logger=True)
+    logger=True,
+    engineio_logger=True,
+    async_mode="eventlet")
+
+    from . import sockets
+
 
     from .routes import bp
     app.register_blueprint(bp)

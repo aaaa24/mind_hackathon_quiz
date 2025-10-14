@@ -292,5 +292,6 @@ def all_players_in_lobby(data):
         return
     players = {"players": serialize_players(room.players.values()),
                "owner" : serialize_player(room.owner)}
+    print(players);
     emit("all_players_in_lobby", players, to=request.sid)
 
