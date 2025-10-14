@@ -62,10 +62,11 @@ def join_game_room(data):
     socketio.emit("message",{"message" : "Join room success"}, to=request.sid)
     all_players_in_lobby(data)
 
-
+@socketio.on("leave_room")
 @socketio.on("disconnect")
-def leave_game_room():
+def leave_game_room(data):
     user_id, room_id = redis_storage.get_request_sid_data(request.sid)
+    leave_room(room_id)
     print("CHECK")
     room = redis_storage.get_room(room_id)
     if room is None:
@@ -76,7 +77,6 @@ def leave_game_room():
     if player is None:
         socketio.emit("Error", {"message": "This player doesn't exist"})
         return
-    leave_room(room_id)
     room.players.pop(user_id)
     redis_storage.delete_request_sid(request.sid)
     if player.user_id == room.owner.user_id:
