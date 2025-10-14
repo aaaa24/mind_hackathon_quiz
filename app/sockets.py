@@ -36,11 +36,16 @@ def join_game_room(data):
 
     user_id = data['user_id']
     room = storage.rooms.get(room_id, None)
-    if(room.players.get(user_id) is None):
+
+    if room is None:
+        emit("Error", "This room doesn't exist")
+        return
+    if room.players.get(user_id) is None:
         emit("Error", "This user is not in room")
-    else:
-        print(f"Received data = {data}")
-        join_room(room_id)
+        return
+
+    print(f"Received data = {data}")
+    join_room(room_id)
 
 
 @socketio.on("start_quiz")
