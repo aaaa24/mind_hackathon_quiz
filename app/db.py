@@ -216,7 +216,7 @@ def bd_connect():
     while k <= 5:
         try:
             mydb = mysql.connector.connect(
-                host=os.getenv('DB_HOST'),
+                host=os.getenv('DB_HOST', "host.docker.internal"),
                 user=os.getenv('DB_USER'),
                 port=os.getenv('DB_PORT'),
                 password=os.getenv('DB_PASSWORD'),
