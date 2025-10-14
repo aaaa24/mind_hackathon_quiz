@@ -5,8 +5,12 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_socketio import SocketIO
 
 load_dotenv()
+
+# Создаём socketio-объект
+socketio = SocketIO()
 
 
 def create_app():
@@ -22,6 +26,9 @@ def create_app():
 
     JWTManager(app)
     CORS(app, origins=['http://localhost:3000'], supports_credentials=True)
+
+    # Инициализируем SocketIO с приложением
+    socketio.init_app(app, cors_allowed_origins="*")
 
     from .routes import bp
     app.register_blueprint(bp)

@@ -77,5 +77,3 @@ def clear_room_data(room_id: str):
     """Удалить все данные комнаты из Redis."""
     delete_room(room_id)
     delete_quest_position(room_id)
-    # Удалить код, если знаем его
-    # Лучше хранить обратное сопоставление: room_id -> code

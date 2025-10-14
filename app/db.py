@@ -2,14 +2,11 @@ import json
 import mysql.connector
 import bcrypt
 import os
-from dotenv import load_dotenv
 from typing import List
 from app.models import Room, Question, Player
 from gpt import gpt_request
 import uuid
 import re
-
-load_dotenv()
 
 
 def create_hash(password):
