@@ -315,5 +315,6 @@ def all_players_in_lobby(data):
         return
     players = {"players": serialize_players(room.players.values()),
                "owner" : serialize_player(room.owner)}
+    print(f"Emitting to room {room_id}, players: {len(players['players'])}")
     socketio.emit("all_players_in_lobby", players, to=room_id)
 
