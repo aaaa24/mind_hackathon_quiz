@@ -47,10 +47,10 @@ def join_game_room(data):
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        emit("Error", {"message" :"This room doesn't exist"})
+        socketio.emit("Error", {"message" :"This room doesn't exist"})
         return
     if room.players.get(user_id) is None:
-        emit("Error", {"message" :"This user is not in room"}, to=request.sid)
+        socketio.emit("Error", {"message" :"This user is not in room"}, to=request.sid)
         return
     print("Room exists")
     with global_init_lock:
@@ -62,7 +62,7 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
-    emit("message",{"message" : "Join room success"}, to=request.sid)
+    socketio.emit("message",{"message" : "Join room success"}, to=request.sid)
 
 
 @socketio.on("start_quiz")
@@ -71,19 +71,19 @@ def start_quiz(data):
     user_id = data.get("user_id")
 
     if not room_id:
-        emit("Error", {"message": "missing room_id"}, to=request.sid)
+        socketio.emit("Error", {"message": "missing room_id"}, to=request.sid)
         return
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if room is None:
-        emit("Error", {"message": f"Room {room_id} not found"}, to=request.sid)
+        socketio.emit("Error", {"message": f"Room {room_id} not found"}, to=request.sid)
         return
     if not getattr(room, "questions", None):
-        emit("Error", {"message": "No questions in this room"}, to=request.sid)
+        socketio.emit("Error", {"message": "No questions in this room"}, to=request.sid)
         return
 
     if user_id != room.owner.user_id:
-        emit("Error", "Not owner try to start game")
+        socketio.emit("Error", "Not owner try to start game")
         return
 
     # Устанавливаем позицию вопроса в Redis
@@ -98,12 +98,13 @@ def start_quiz(data):
     redis_storage.save_room(room_id, room)
 
     firstQuest = room.questions[0]
+
+    socketio.emit("startGame", vars(firstQuest), to=room_id)
+    question_start_times[room_id] = time()
+    room.status = RoomStatus.QUESTION
+    socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
     # Сохраняем обновлённую комнату в Redis
     redis_storage.save_room(room_id, room)
-    emit("startGame", vars(firstQuest), to=room_id)
-    question_start_times[room_id] = time()
-    socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
-    room.status = RoomStatus.QUESTION
 
 
 
@@ -113,19 +114,19 @@ def answer(data):
     user_id = data.get('user_id')
     answer_text = data.get('answer')
     if not room_id or not user_id:
-        emit("Error", {"message": "missing room_id or user_id"}, to=request.sid)
+        socketio.emit("Error", {"message": "missing room_id or user_id"}, to=request.sid)
         return
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        emit("Error", {"message": "room not found"}, to=request.sid)
+        socketio.emit("Error", {"message": "room not found"}, to=request.sid)
         return
 
     if room.status != RoomStatus.QUESTION:
         return
 
     if room_locks.get(room_id) is None:
-        emit("Error", {"message": "room lock not initialized"}, to=request.sid)
+        socketio.emit("Error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
     with room_locks[room_id]:
@@ -133,17 +134,17 @@ def answer(data):
         # Получаем позицию вопроса из Redis
         pos = redis_storage.get_quest_position(room_id)
         if start_ts is None or pos is None:
-            emit("Error", {"message": "question not started"}, to=request.sid)
+            socketio.emit("Error", {"message": "question not started"}, to=request.sid)
             return
         try:
             current_quest = room.questions[pos]
         except (IndexError, TypeError):
-            emit("Error", {"message": "invalid question position"}, to=request.sid)
+            socketio.emit("Error", {"message": "invalid question position"}, to=request.sid)
             return
 
         user = room.players.get(user_id)
         if not user:
-            emit("Error", {"message": "user not in room"}, to=request.sid)
+            socketio.emit("Error", {"message": "user not in room"}, to=request.sid)
             return
         if user.answered:
             return
@@ -176,11 +177,14 @@ def answer(data):
 
 
 def question_timer(room_id, time_limit):
+
     socketio.sleep(time_limit)
 
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room or room.status != RoomStatus.QUESTION:
+        print(room.room_id)
+        print(room.status)
         return
 
     # Получаем позицию вопроса из Redis
@@ -191,11 +195,12 @@ def question_timer(room_id, time_limit):
     current_question = room.questions[pos]
     correct_answer = current_question.correct_answer
 
-    emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
-    emit("need_update_leaderboard", to=room_id)
+    socketio.emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+    socketio.emit("need_update_leaderboard", to=room_id)
     room.status = RoomStatus.CHECK_CORRECT_ANSWER
 
     socketio.sleep(20)
+
     with room_locks[room_id]:
         next_question({"room_id": room_id})
 
@@ -206,14 +211,14 @@ def next_question(data):
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        emit("Error", "This room doesn't exist", to=request.sid)
+        socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
     if pos is None:
-        emit("Error", "Quest position not found", to=room_id)
+        socketio.emit("Error", "Quest position not found", to=room_id)
         return
 
     if pos == len(questions) - 1:
@@ -222,7 +227,7 @@ def next_question(data):
         redis_storage.save_room(room_id, room)
         # Удаляем комнату из списка активных
         redis_storage.remove_active_room(room_id)
-        emit("endOfGame", to=room_id)
+        socketio.emit("endOfGame", to=room_id)
         # Удаляем позицию вопроса из Redis
         redis_storage.delete_quest_position(room_id)
         # Убираем локальные данные
@@ -235,7 +240,7 @@ def next_question(data):
         next_quest = questions[next_question_position]
         # Обновляем позицию вопроса в Redis
         redis_storage.set_quest_position(room_id, next_question_position)
-        emit("get_quest", vars(next_quest), to=room_id)
+        socketio.emit("get_quest", vars(next_quest), to=room_id)
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
@@ -247,7 +252,7 @@ def show_results(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        emit("Error", "Room not found", to=room_id)
+        socketio.emit("Error", "Room not found", to=room_id)
         return
 
     res = []
@@ -260,7 +265,7 @@ def show_results(data):
         }
         res.append(r)
     res.sort(key=lambda x: x['score'], reverse=True)
-    emit("result", res, to=room_id)
+    socketio.emit("result", res, to=room_id)
 
 
 @socketio.on("update_leaderboard")
@@ -269,7 +274,7 @@ def update_leaderboard(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        emit("Error", "Room not found", to=room_id)
+        socketio.emit("Error", "Room not found", to=room_id)
         return
 
     res = []
@@ -281,7 +286,7 @@ def update_leaderboard(data):
         }
         res.append(r)
     res.sort(key=lambda x: [x['score']], reverse=True)
-    emit("update_leaderboard", res, to=room_id)
+    socketio.emit("update_leaderboard", res, to=room_id)
 
 
 @socketio.on("all_players_in_lobby")
@@ -290,9 +295,9 @@ def all_players_in_lobby(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if room is None:
-        emit("Error", {"message": "Room not found"}, to=request.sid)
+        socketio.emit("Error", {"message": "Room not found"}, to=request.sid)
         return
     players = {"players": serialize_players(room.players.values()),
                "owner" : serialize_player(room.owner)}
-    emit("all_players_in_lobby", players, to=request.sid)
+    socketio.emit("all_players_in_lobby", players, to=request.sid)
 
