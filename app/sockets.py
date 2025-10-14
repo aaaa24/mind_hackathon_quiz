@@ -58,14 +58,15 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
+    redis_storage.save_request_sid(request.sid,user_id, room_id)
     socketio.emit("message",{"message" : "Join room success"}, to=request.sid)
     all_players_in_lobby(data)
 
 
 @socketio.on("disconnect")
-def leave_game_room(data):
-    user_id = data['user_id']
-    room_id = data['room_id']
+def leave_game_room():
+    user_id, room_id = redis_storage.get_request_sid_data(request.sid)
+    print("CHECK")
     room = redis_storage.get_room(room_id)
     if room is None:
         socketio.emit("Error", {"message": "This room doesn't exist"})
@@ -77,16 +78,18 @@ def leave_game_room(data):
         return
     leave_room(room_id)
     room.players.pop(user_id)
+    redis_storage.delete_request_sid(request.sid)
     if player.user_id == room.owner.user_id:
         other_players = [p for p in room.players.values()]
         if len(other_players) == 0:
             redis_storage.clear_room_data(room_id)
             room_locks.pop(room_id)
             question_start_times.pop(room_id)
+
         else:
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
-            all_players_in_lobby(data)
+            all_players_in_lobby({"room_id":room_id})
 
 
 @socketio.on("start_quiz")

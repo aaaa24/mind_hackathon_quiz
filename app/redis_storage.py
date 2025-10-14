@@ -11,6 +11,21 @@ r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=0
 
 print(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'));
 
+def save_request_sid(request_sid, user_id, room_id ):
+    r.set(f"sid_user:{request_sid}", user_id)
+    r.set(f"sid_room:{request_sid}", room_id)
+
+def delete_request_sid(request_sid):
+    r.delete(f"sid_user:{request_sid}")
+    r.delete(f"sid_room:{request_sid}")
+
+def get_request_sid_data(request_sid) -> Optional[tuple]:
+    user_id = r.get(f"sid_user:{request_sid}")
+    room_id = r.get(f"sid_room:{request_sid}")
+    if user_id and room_id:
+        return user_id, room_id
+    return None
+
 def save_room(room_id: str, room: Room):
     """Сохранить комнату в Redis."""
     r.set(f"room:{room_id}", pickle.dumps(room))
