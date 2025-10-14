@@ -245,7 +245,7 @@ def show_results(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        emit("error", "Room not found", to=room_id)
+        emit("Error", "Room not found", to=room_id)
         return
 
     res = []
@@ -267,7 +267,7 @@ def update_leaderboard(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        emit("error", "Room not found", to=room_id)
+        emit("Error", "Room not found", to=room_id)
         return
 
     res = []
