@@ -105,11 +105,11 @@ def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
         if len(category_ids) == 1:
-            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
+            system = "Необходимо придумать n вопросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (правильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
             user_text = f"n = {count_questions}, topics = Любая тематика на твое усмотрение"
         else:
             category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
-            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
+            system = "Необходимо придумать n вопросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (правильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
             user_text = f"n = {count_questions}, topics = {category_ids}"
         try:
             data = gpt_request(system, user_text)
