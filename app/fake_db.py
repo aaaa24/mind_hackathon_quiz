@@ -51,3 +51,7 @@ def get_categories():
         ]
     }
     return result
+
+
+def get_past_games(user_id):
+    return {'success': True, 'games': []}
