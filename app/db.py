@@ -7,7 +7,7 @@ from typing import List
 from app.models import Room, Question, Player
 from gpt import gpt_request
 import uuid
-
+import re
 
 load_dotenv()
 
@@ -108,27 +108,35 @@ def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
         if len(category_ids) == 1:
-            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]"
+            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
             user_text = f"n = {count_questions}, topics = Любая тематика на твое усмотрение"
         else:
             category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
-            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]"
+            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]."
             user_text = f"n = {count_questions}, topics = {category_ids}"
-        data = list(gpt_request(system, user_text))
-        questions = []
-        if data:
-            for question in data:
-                questions.append(
-                    Question(id=str(uuid.uuid4()),
-                             text=question['text'],
-                             options=question['options'],
-                             correct_answer=question['correct_answer'],
-                             time_limit=question['time_limit'],
-                             category_id=os.getenv('GPT_CATEGORY_ID')))
-            return {'success': True, 'questions': questions}
-        else:
+        try:
+            data = gpt_request(system, user_text)
+            pattern = r'\[[\s\S]*\]'
+            match = re.search(pattern, data)
+            if match:
+                json_string = match.group()
+                data = json.loads(json_string)
+            questions = []
+            if data:
+                for question in data:
+                    questions.append(
+                        Question(id=str(uuid.uuid4()),
+                                 text=question['text'],
+                                 options=question['options'],
+                                 correct_answer=question['correct_answer'],
+                                 time_limit=question['time_limit'],
+                                 category_id=os.getenv('GPT_CATEGORY_ID')))
+                return {'success': True, 'questions': questions}
+            else:
+                return {'success': False, 'questions': None}
+        except Exception as e:
+            print(e)
             return {'success': False, 'questions': None}
-
 
     sql = "SELECT * FROM questions "
     if category_ids:
@@ -170,6 +178,7 @@ def get_last_games(user_id):
                  "place": place})
         return {"success": True, "games": games}
     return {"success": False, "games": None}
+
 
 def put_to_bd(sql, params=None):
     try:
@@ -223,8 +232,9 @@ def bd_connect():
             return mydb
     return None
 
+
 # print(sign_in("Danil", "12345"))
-# id1 = '572d2207-a841-11f0-8d77-cc28aa8d5d25'
+#id1 = '572d2207-a841-11f0-8d77-cc28aa8d5d25'
 # id2 = '1a4350d1-a841-11f0-8d77-cc28aa8d5d25'
 # for i in range(15):
 #     print(create_question(id1, f"Test_Кино_{i} Какой фильм называют «самым известным ужастиком о душе, которая живёт в воде»?", ["«Сияние»", "«Пила»", "«Звонок»", "«Чужой»"], "Звонок", 10+i))
@@ -232,3 +242,4 @@ def bd_connect():
 # print(get_categories())
 # print(get_questions(5, [id1]))
 # print(get_questions(7, [id1, id2]))
+#print(get_questions(5, [os.getenv('GPT_CATEGORY_ID'), id1]))

@@ -8,6 +8,7 @@ class RoomStatus(str, Enum):
     WAITING = 'waiting'
     QUESTION = 'question'
     FINISHED = 'finished'
+    CHECK_CORRECT_ANSWER = "checkCorrectAnswer"
 
 
 @dataclass
