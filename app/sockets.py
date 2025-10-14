@@ -4,6 +4,7 @@ from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from . import storage
 from .models import RoomStatus, Question, Player
 from threading import Lock
+from time import time
 
 socketio = SocketIO()
 
@@ -14,7 +15,8 @@ def init_socketio(app):
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
 room_locks: Dict[str, Lock] = {}
-
+question_start_times: Dict[str, float] = {}
+global_init_lock = Lock()
 
 def serialize_player(player):
     return {
@@ -44,22 +46,27 @@ def join_game_room(data):
         emit("Error", "This user is not in room")
         return
 
+    with global_init_lock:
+        room_locks.setdefault(room_id, Lock())
+        questPosition.setdefault(room_id, -1)
+        question_start_times.setdefault(room_id, 0.0)
+
     print(f"Received data = {data}")
     join_room(room_id)
+    emit("message","Join room success", to=room_id)
 
 
 @socketio.on("start_quiz")
 def start_quiz(data):
-    room_id = data["room_id"]
-    print(data)
+    room_id = data.get("room_id")
+    if not room_id:
+        emit("error", {"message": "missing room_id"})
+        return
     room = storage.rooms.get(room_id)
-
     if room is None:
         emit("error", {"message": f"Room {room_id} not found"})
-        print("Vse huina")
         return
-
-    if not room.questions or len(room.questions) == 0:
+    if not getattr(room, "questions", None):
         emit("error", {"message": "No questions in this room"})
         return
 
@@ -70,26 +77,71 @@ def start_quiz(data):
         player.answer = ""
         player.answered = False
 
-    firstQuest = room.questions[questPosition[room_id]]
+    firstQuest = room.questions[0]
     room.status = RoomStatus.QUESTION
     emit("startGame", vars(firstQuest), to=room_id)
-
+    socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
 
 
 
 @socketio.on("answer")
 def answer(data):
-    room_id = data['room_id']
-    user_id = data['user_id']
-    answer = data['answer']
-
-    room = storage.rooms.get(room_id)
-
-    if room is None:
+    room_id = data.get('room_id')
+    user_id = data.get('user_id')
+    answer_text = data.get('answer')
+    if not room_id or not user_id:
+        emit("error", {"message": "missing room_id or user_id"})
         return
-    user = room.players.get(user_id)
-    user.answer = answer
-    user.answered = True
+    room = storage.rooms.get(room_id)
+    if not room:
+        emit("error", {"message": "room not found"})
+        return
+    if room_locks.get(room_id) is None:
+        emit("error", {"message": "room lock not initialized"})
+        return
+
+    with room_locks[room_id]:
+        start_ts = question_start_times.get(room_id)
+        pos = questPosition.get(room_id)
+        if start_ts is None or pos is None:
+            emit("error", {"message": "question not started"})
+            return
+        try:
+            current_quest = room.questions[pos]
+        except (IndexError, TypeError):
+            emit("error", {"message": "invalid question position"})
+            return
+
+        user = room.players.get(user_id)
+        if not user:
+            emit("error", {"message": "user not in room"})
+            return
+        if user.answered:
+            return
+
+        past_time = time() - start_ts
+        lim = getattr(current_quest, "time_limit", 0)
+        if lim <= 0:
+            user.answered = True
+            user.answer = answer_text
+            return
+
+        if past_time <= lim:
+            user.answered = True
+            user.answer = answer_text
+            part = lim / 4.0
+            if answer_text == current_quest.correct_answer:
+                user.correct += 1
+                if 0 <= past_time < part:
+                    user.score += 60  # 10 + 50
+                elif part <= past_time < 2 * part:
+                    user.score += 35
+                elif 2 * part <= past_time < 3 * part:
+                    user.score += 20
+                else:
+                    user.score += 10
+
+
 
 def question_timer(room_id, time_limit):
     socketio.sleep(time_limit)
@@ -100,8 +152,8 @@ def question_timer(room_id, time_limit):
 
     current_question = room.questions[questPosition[room_id]]
     correct_answer = current_question.correct_answer
-
     emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+    emit("need_update_leaderboard", to=room_id)
 
     socketio.sleep(20)
     with room_locks[room_id]:
@@ -112,26 +164,24 @@ def next_question(data):
     room = storage.rooms.get(room_id)
 
     if room is None:
-        emit("error", "This room doesn't exist", to=room_id)
+        emit("Error", "This room doesn't exist", to=room_id)
 
     questions = room.questions
-    lastAnswer = questions[questPosition[room_id]].correct_answer
-    players = room.players.values()
-    for p in players:
-        if(p.answered and p.answer == lastAnswer):
-            p.score += 10
-            p.correct += 1
-        p.answered = False
-        p.answer = ""
 
     if (questPosition.get(room_id) == len(questions)-1):
         room.status = RoomStatus.FINISHED
         emit("EndOfGame", to=room_id)
+        questPosition.pop(room_id, None)
+        question_start_times.pop(room_id, None)
+        room_locks.pop(room_id, None)
+        return
+
     else:
         next_question_position = questPosition.get(room_id) + 1
         next_quest = questions[next_question_position]
         questPosition[room_id] = next_question_position
-        emit("next_quest", vars(next_quest), to=room_id)
+        emit("get_quest", vars(next_quest), to=room_id)
+        question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
 
 
@@ -142,15 +192,13 @@ def show_results(data):
     players = storage.rooms.get(room_id).players.values()
     for i in players:
         r = {
+            "user_id" : i.user_id,
             "username" : i.username,
             "score": i.score
         }
         res.append(r)
-    res.sort(key = lambda x : [x['score']], reverse=True)
+    res.sort(key=lambda x: x['score'], reverse=True)
     emit("result", res, to=room_id)
-
-
-
 
 @socketio.on("update_leaderboard")
 def update_leaderboard(data):
@@ -172,7 +220,7 @@ def all_players_in_lobby(data):
     room_id = data['room_id']
     room = storage.rooms.get(room_id)
     if room is None:
-        emit("error", {"message": "Room not found"}, to=room_id)
+        emit("Error", {"message": "Room not found"}, to=room_id)
         return
     players = {"players": serialize_players(room.players.values())}
     emit("all_players_in_lobby", players, to=room_id)
