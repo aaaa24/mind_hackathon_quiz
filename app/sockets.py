@@ -11,10 +11,6 @@ from flask import request
 socketio = SocketIO()
 
 
-def init_socketio(app):
-    socketio.init_app(app)
-
-
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
 room_locks: Dict[str, Lock] = {}

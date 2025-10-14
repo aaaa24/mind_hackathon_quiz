@@ -8,12 +8,12 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_socketio import SocketIO
-
+from app.sockets import socketio
 load_dotenv()
 
 # Создаём socketio-объект
 
-socketio = SocketIO()
+
 
 def create_app():
     app = Flask(__name__)
@@ -36,6 +36,11 @@ def create_app():
         app.logger.setLevel(logging.INFO)
     app.logger.info('Flask app started')
 
+    from . import sockets
+
+    from .routes import bp
+    app.register_blueprint(bp)
+
     socketio.init_app(
         app,
         cors_allowed_origins="*",
@@ -43,10 +48,5 @@ def create_app():
         engineio_logger=True,
         async_mode="eventlet"
     )
-
-    from . import sockets
-
-    from .routes import bp
-    app.register_blueprint(bp)
 
     return app
