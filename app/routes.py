@@ -197,3 +197,18 @@ def get_past_games():
     if not past_games['success']:
         return jsonify({'message': 'No games available'}), 500
     return jsonify({'games': past_games['games']}), 200
+
+
+@bp.route('/rooms/<room_code>/room_id', methods=['GET'])
+@jwt_required()
+def get_room_id_by_room_code(room_code):
+    user_id = get_jwt_identity()
+    room_id = storage.room_codes.get(room_code)
+    if not room_id:
+        return jsonify({'message': 'Room not found'}), 404
+    room = storage.rooms.get(room_id)
+    if not room:
+        return jsonify({'message': 'Room not found'}), 404
+    if user_id not in room.players:
+        return jsonify({'message': 'User not in room'}), 403
+    return jsonify({'room_id': room_id}), 200
