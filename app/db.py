@@ -4,7 +4,7 @@ import bcrypt
 import os
 from typing import List
 from app.models import Room, Question, Player
-from gpt import gpt_request
+from app.gpt import gpt_request
 import uuid
 import re
 
