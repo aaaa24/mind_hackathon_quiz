@@ -1,6 +1,8 @@
 from datetime import timedelta
 import os
-
+import logging
+from logging import StreamHandler
+import sys
 from dotenv import load_dotenv
 from flask import Flask
 from flask_jwt_extended import JWTManager
@@ -27,8 +29,18 @@ def create_app():
     JWTManager(app)
     CORS(app, origins=['http://localhost:3000'], supports_credentials=True)
 
+    if not app.debug:
+        stream_handler = StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.INFO)
+        app.logger.addHandler(stream_handler)
+        app.logger.setLevel(logging.INFO)
+    app.logger.info('Flask app started')
+
     # Инициализируем SocketIO с приложением
-    socketio.init_app(app, cors_allowed_origins="*")
+    socketio.init_app( app,
+    cors_allowed_origins="*",
+    logger=True,        
+    engineio_logger=True)
 
     from .routes import bp
     app.register_blueprint(bp)
