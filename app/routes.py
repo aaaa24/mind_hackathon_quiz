@@ -116,7 +116,7 @@ def create_room():
     code = generate_code()
     storage.room_codes[code] = room_id
 
-    return jsonify({'room_code': code}), 201
+    return jsonify({'room_code': code, 'rome_id': room_id}), 201
 
 
 @bp.route('/rooms/join', methods=['POST'])
