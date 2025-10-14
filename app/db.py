@@ -96,7 +96,7 @@ def get_categories():
         categories = []
         for category in data:
             categories.append({"id": category["id"], "name": category["name"]})
-        return {"success": True, "categories": [categories]}
+        return {"success": True, "categories": categories}
     else:
         return {"success": False, "categories": None}
 
