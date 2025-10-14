@@ -7,7 +7,6 @@ from threading import Lock
 
 socketio = SocketIO()
 
-
 def init_socketio(app):
     socketio.init_app(app)
 
@@ -30,24 +29,6 @@ def serialize_player(player):
 
 def serialize_players(players):
     return [serialize_player(player) for player in players]
-
-def question_timer(room_id, time_limit):
-    socketio.sleep(time_limit)
-
-    room = storage.rooms.get(room_id)
-    if not room or room.status != RoomStatus.QUESTION:
-        return
-
-    current_question = room.questions[questPosition[room_id]]
-    correct_answer = current_question.correct_answer
-
-    emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
-
-    socketio.sleep(15)
-    with room_locks[room_id]:
-        next_question({"room_id": room_id})
-
-
 
 @socketio.on("join_room")
 def join_game_room(data):
@@ -105,7 +86,21 @@ def answer(data):
     user.answer = answer
     user.answered = True
 
+def question_timer(room_id, time_limit):
+    socketio.sleep(time_limit)
 
+    room = storage.rooms.get(room_id)
+    if not room or room.status != RoomStatus.QUESTION:
+        return
+
+    current_question = room.questions[questPosition[room_id]]
+    correct_answer = current_question.correct_answer
+
+    emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+
+    socketio.sleep(20)
+    with room_locks[room_id]:
+        next_question({"room_id": room_id})
 
 def next_question(data):
     room_id = data['room_id']
@@ -147,7 +142,7 @@ def show_results(data):
         }
         res.append(r)
     res.sort(key = lambda x : [x['score']], reverse=True)
-    emit("result", vars(res), to=room_id)
+    emit("result", res, to=room_id)
 
 
 
@@ -164,7 +159,7 @@ def update_leaderboard(data):
         }
         res.append(r)
     res.sort(key=lambda x: [x['score']], reverse=True)
-    emit("update_leaderboard", vars(res), to=room_id)
+    emit("update_leaderboard", res, to=room_id)
 
 
 @socketio.on("all_players_in_lobby")
