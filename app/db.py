@@ -3,7 +3,8 @@ import mysql.connector
 import bcrypt
 import os
 from dotenv import load_dotenv
-from app.models import Room, Question
+from typing import List
+from app.models import Room, Question, Player
 
 load_dotenv()
 
@@ -73,13 +74,16 @@ def save_room(room: Room):
                          (room_id, owner, end, amount))
     sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
     params = []
-    for player in room.players:
-        params.append(room_id, player.user_id, player.score, player.correct)
-        sql += ' (%s,%s,%s,%s), '
+    players: List[Player] = list(room.players.values())
+    players.sort(key=lambda x: x.score)
+    place = 1
+    for player in players:
+        params.append(room_id, player.user_id, player.score, player.correct, place)
+        sql += ' (%s,%s,%s,%s,%s), '
+        place += 1
     sql = sql[:-2]
     sql += ';'
-    put_players = put_to_bd("INSERT INTO rooms_users (id, user_id, score, correct) VALUES (%s,%s,%s)",
-                            (room_id, owner, end))
+    put_players = put_to_bd("INSERT INTO rooms_users (id, user_id, score, correct, place) VALUES ", params)
     if put_room and put_players:
         return {'success': True}
     else:
@@ -118,6 +122,26 @@ def get_questions(count_questions, category_ids):
     else:
         return {'success': True, 'questions': None}
 
+
+def get_last_games(user_id):
+    data = get_from_bd("SELECT * FROM rooms_users WHERE user_id = %s", (user_id,))
+    if data:
+        games = []
+        for room in data:
+            room_id = room["room_id"]
+            score = room["score"]
+            correct = room["correct"]
+            room_info = get_from_bd("SELECT * FROM rooms WHERE id = %s", (room_id,))
+            owner = Player(user_id=room_info["owner"], username=get_user(room_info["owner"])["login"])
+            amount = room_info["amount"]
+            creation = room_info["creation"]
+            end = room_info["end"]
+            place = room["place"]
+            games.append(
+                {"score": score, "correct": correct, "owner": owner, "amount": amount, "creation": creation, "end": end,
+                 "place": place})
+        return {"success": True, "games": games}
+    return {"success": False, "games": None}
 
 def put_to_bd(sql, params=None):
     try:
