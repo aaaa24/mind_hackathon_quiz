@@ -201,6 +201,7 @@ def answer(data):
                     user.score += 10
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
+            socketio.emit("answer", {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) })
 
 
 def question_timer(room_id, time_limit):
@@ -307,6 +308,7 @@ def update_leaderboard(data):
     players = room.players.values()
     for i in players:
         r = {
+            "user_id": i.user_id,
             "username": i.username,
             "score": i.score
         }
