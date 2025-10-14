@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta, timezone
 import secrets
 import uuid
 
@@ -8,7 +7,7 @@ from flask_jwt_extended import jwt_required, create_access_token, set_access_coo
 from .models import Room, Player, RoomStatus
 
 from . import fake_db as db
-from . import storage
+from . import redis_storage
 
 bp = Blueprint('main', __name__)
 
@@ -109,14 +108,20 @@ def create_room():
     new_room.questions = questions['questions']
     new_room.current_question_index = 0
 
-    # Сохраняем комнату в БД
-    storage.rooms[room_id] = new_room
-
-    # Генерируем код и сохраняем сопоставление
+    # Генерируем код и сохраняем его в комнате
     code = generate_code()
-    storage.room_codes[code] = room_id
+    new_room.room_code = code
 
-    return jsonify({'room_code': code, 'rome_id': room_id}), 201
+    # Сохраняем комнату в Redis
+    redis_storage.save_room(room_id, new_room)
+
+    # Сохраняем сопоставление код -> room_id
+    redis_storage.save_room_code(code, room_id)
+
+    # Добавляем комнату в список активных
+    redis_storage.add_active_room(room_id)
+
+    return jsonify({'room_code': code, 'room_id': room_id}), 201
 
 
 @bp.route('/rooms/join', methods=['POST'])
@@ -128,7 +133,8 @@ def join_room_by_code():
     if not code:
         return jsonify({'message': 'Room code is required'}), 400
 
-    room_id = storage.room_codes.get(code)
+    # Получаем room_id по коду из Redis
+    room_id = redis_storage.get_room_id_by_code(code)
     if not room_id:
         return jsonify({'message': 'Room not found'}), 404
 
@@ -140,14 +146,14 @@ def join_room_by_code():
 
     username = user['login']
 
-    # Получаем комнату из памяти
-    room = storage.rooms.get(room_id)
+    # Получаем комнату из Redis
+    room = redis_storage.get_room(room_id)
     if not room:
         return jsonify({'message': 'Room not found'}), 404
 
     # Проверки
     if user_id in room.players:
-        return jsonify({'message': 'Player already in room'}), 400
+        return jsonify({'message': 'Player already in room'}), 409
 
     if room.status != RoomStatus.WAITING:
         return jsonify({'message': 'Quiz has already started'}), 400
@@ -158,6 +164,9 @@ def join_room_by_code():
     # Добавляем игрока в память
     player = Player(user_id=user_id, username=username)
     room.players[user_id] = player
+
+    # Сохраняем обновлённую комнату в Redis
+    redis_storage.save_room(room_id, room)
 
     return jsonify({'room_id': room_id}), 200
 
@@ -174,18 +183,20 @@ def get_categories_list():
 @bp.route('/rooms/list', methods=['GET'])
 @jwt_required()
 def list_rooms():
-    available_rooms = [
-        {
-            'room_id': room.room_id,
-            'owner': room.owner.username,
-            'player_count': len(room.players),
-            'max_players': room.max_players,
-            'room_code': code
-        }
-        for code, room_id in storage.room_codes.items()
-        for room in [storage.rooms.get(room_id)]
-        if room and room.status == RoomStatus.WAITING
-    ]
+    available_rooms = []
+    # Получаем список активных комнат
+    active_room_ids = redis_storage.get_active_rooms()
+    for room_id in active_room_ids:
+        room = redis_storage.get_room(room_id)
+        if room and room.status == RoomStatus.WAITING:
+            available_rooms.append({
+                'room_id': room.room_id,
+                'owner': room.owner.username,
+                'player_count': len(room.players),
+                'max_players': room.max_players,
+                'room_code': room.room_code  # Берём из самой комнаты
+            })
+
     return jsonify({'rooms': available_rooms}), 200
 
 
@@ -203,10 +214,10 @@ def get_past_games():
 @jwt_required()
 def get_room_id_by_room_code(room_code):
     user_id = get_jwt_identity()
-    room_id = storage.room_codes.get(room_code)
+    room_id = redis_storage.get_room_id_by_code(room_code)
     if not room_id:
         return jsonify({'message': 'Room not found'}), 404
-    room = storage.rooms.get(room_id)
+    room = redis_storage.get_room(room_id)
     if not room:
         return jsonify({'message': 'Room not found'}), 404
     if user_id not in room.players:

@@ -49,3 +49,4 @@ class Room:
     timer_end: Optional[datetime] = None
     leaderboard: List[dict] = field(default_factory=list)
     max_players: int = 10
+    room_code: Optional[str] = None
