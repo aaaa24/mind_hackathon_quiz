@@ -8,6 +8,7 @@ import os
 # Подключение к Redis
 r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=0, decode_responses=False)
 
+
 print(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'));
 
 def save_room(room_id: str, room: Room):

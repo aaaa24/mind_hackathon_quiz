@@ -9,10 +9,10 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from app.sockets import socketio
+
 load_dotenv()
 
 # Создаём socketio-объект
-
 
 
 def create_app():
@@ -40,13 +40,16 @@ def create_app():
 
     from .routes import bp
     app.register_blueprint(bp)
+    
+    redis_url = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/0"
 
     socketio.init_app(
         app,
         cors_allowed_origins="*",
         logger=True,
         engineio_logger=True,
-        async_mode="eventlet"
+        async_mode="eventlet",
+        message_queue=redis_url
     )
 
     return app
