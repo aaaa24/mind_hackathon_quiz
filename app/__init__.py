@@ -13,7 +13,7 @@ load_dotenv()
 
 # Создаём socketio-объект
 
-
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -35,6 +35,16 @@ def create_app():
         app.logger.addHandler(stream_handler)
         app.logger.setLevel(logging.INFO)
     app.logger.info('Flask app started')
+
+    socketio.init_app(
+        app,
+        cors_allowed_origins="*",
+        logger=True,
+        engineio_logger=True,
+        async_mode="eventlet"
+    )
+
+    from . import sockets
 
     from .routes import bp
     app.register_blueprint(bp)

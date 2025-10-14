@@ -8,15 +8,7 @@ from threading import Lock
 from time import time
 from flask import request
 
-socketio = SocketIO()
-
-def init_socketio(app):
-    socketio.init_app(app,
-    cors_allowed_origins="*",
-    logger=True,
-    engineio_logger=True,
-    async_mode="eventlet")
-
+from . import socketio
 
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
