@@ -83,6 +83,7 @@ def start_quiz(data):
         player.answer = ""
         player.answered = False
 
+
     firstQuest = room.questions[0]
     emit("startGame", vars(firstQuest), to=room_id)
     question_start_times[room_id] = time()
