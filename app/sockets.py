@@ -253,7 +253,7 @@ def question_timer(room_id, time_limit):
     socketio.emit("need_update_leaderboard", to=room_id)
     room.status = RoomStatus.CHECK_CORRECT_ANSWER
 
-    socketio.sleep(20)
+    socketio.sleep(5)
 
     with room_locks[room_id]:
         next_question({"room_id": room_id})
