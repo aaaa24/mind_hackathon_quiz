@@ -45,7 +45,7 @@ def join_game_room(data):
         socketio.emit("Error", {"message" :"This room doesn't exist"})
         return
     user = room.players.get(user_id)
-    if room.players.get(user_id) is None:
+    if user is None:
         socketio.emit("Error", {"message" :"This user is not in room"}, to=request.sid)
         return
     print("Room exists")
@@ -278,7 +278,6 @@ def show_results(data):
     if not room:
         socketio.emit("Error", "Room not found", to=room_id)
         return
-
     res = []
     players = room.players.values()
     for i in players:
