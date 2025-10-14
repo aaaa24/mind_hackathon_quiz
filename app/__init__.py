@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()  # должно стоять ПЕРВЫМ
+
 from datetime import timedelta
 import os
 import logging
