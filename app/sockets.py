@@ -1,5 +1,5 @@
 from typing import Dict
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from . import redis_storage
 from .models import RoomStatus
 from threading import Lock
@@ -59,6 +59,26 @@ def join_game_room(data):
     join_room(room_id)
     socketio.emit("message",{"message" : "Join room success"}, to=request.sid)
     all_players_in_lobby(data)
+
+@socketio.on("leave_room")
+def leave_game_room(data):
+    user_id = data['user_id']
+    room_id = data['room_id']
+    room = redis_storage.get_room(room_id)
+    if room is None:
+        socketio.emit("Error", {"message": "This room doesn't exist"})
+        return
+    player = room.players.get(user_id, None)
+
+    if player is None:
+        socketio.emit("Error", {"message": "This player doesn't exist"})
+        return
+    leave_room(room_id)
+    room.players.pop(user_id)
+    redis_storage.save_room(room_id, room)
+    all_players_in_lobby(data)
+
+
 
 
 @socketio.on("start_quiz")
