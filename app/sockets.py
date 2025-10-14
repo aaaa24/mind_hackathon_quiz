@@ -10,9 +10,12 @@ from flask import request
 
 socketio = SocketIO()
 
-
 def init_socketio(app):
-    socketio.init_app(app)
+    socketio.init_app(app,
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True,
+    async_mode="eventlet")
 
 
 # key = room_id, value = position of quest
