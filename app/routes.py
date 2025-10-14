@@ -162,48 +162,6 @@ def join_room_by_code():
     return jsonify({'room_id': room_id}), 200
 
 
-@bp.route('/rooms/<room_id>/start', methods=['POST'])
-@jwt_required()
-def start_room(room_id: str):
-    user_id = get_jwt_identity()
-
-    # Получаем комнату из памяти
-    room = storage.rooms.get(room_id)
-    if not room:
-        return jsonify({'message': 'Room not found'}), 404
-
-    # Проверяем, что пользователь — владелец комнаты
-    if room.owner.user_id != user_id:
-        return jsonify({'message': 'Only the room owner can start the quiz'}), 403
-
-    # Проверяем, что викторина ещё не начата
-    if room.status != RoomStatus.WAITING:
-        return jsonify({'message': 'Quiz has already started or is finished'}), 400
-
-    # Проверяем, что в комнате есть хотя бы 1 игрок
-    if len(room.players) < 1:
-        return jsonify({'message': 'Not enough players to start the quiz'}), 400
-
-    # Меняем статус комнаты
-    room.status = RoomStatus.QUESTION
-
-    # Устанавливаем таймер для первого вопроса
-    question_time_limit = room.questions[0].time_limit
-    room.timer_end = datetime.now(timezone.utc) + timedelta(seconds=question_time_limit)
-
-    # Сбрасываем флаги answered для всех игроков
-    for player in room.players.values():
-        player.answered = False
-        player.answer = None
-
-    # Возвращаем ответ
-    return jsonify({
-        'message': 'Quiz started successfully',
-        'current_question': room.questions[0],
-        'timer_end': room.timer_end.isoformat()
-    }), 200
-
-
 @bp.route('/categories/list', methods=['GET'])
 @jwt_required()
 def get_categories_list():
