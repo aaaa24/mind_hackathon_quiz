@@ -64,21 +64,35 @@ def join_game_room(data):
 
 @socketio.on("leave_room")
 @socketio.on("disconnect")
-def leave_game_room(data):
+def leave_game_room(data=None):
     user_id, room_id = redis_storage.get_request_sid_data(request.sid)
-    leave_room(room_id)
-    print(f"CHECK {user_id} and {room_id}")
+
+    # Преобразуем байты в строки, если нужно
+    if isinstance(room_id, bytes):
+        room_id = room_id.decode()
+    if isinstance(user_id, bytes):
+        user_id = user_id.decode()
+
+    if not room_id:
+        print(f"No room_id found for SID: {request.sid}")
+        return
+
+    try:
+        leave_room(room_id)
+    except Exception as e:
+        print(f"Error leaving room: {e}")
+
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        socketio.emit("Error", {"message": "This room doesn't exist"})
+        socketio.emit("Error", {"message": "This room doesn't exist"}, to=request.sid)
         return
-    player = room.players.get(user_id, None)
+    player = room.players.get(user_id)
 
     if player is None:
-        socketio.emit("Error", {"message": "This player doesn't exist"})
+        socketio.emit("Error", {"message": "This player doesn't exist"}, to=request.sid)
         return
-    room.players.pop(user_id)
+    room.players.pop(user_id, None)
     redis_storage.delete_request_sid(request.sid)
     if player.user_id == room.owner.user_id:
         other_players = [p for p in room.players.values()]
