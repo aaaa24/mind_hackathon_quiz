@@ -1,5 +1,7 @@
 from typing import Dict
 from flask_socketio import SocketIO, emit, join_room
+from gunicorn.glogging import Logger
+
 from . import redis_storage
 from .models import RoomStatus
 from threading import Lock
@@ -45,12 +47,12 @@ def join_game_room(data):
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        emit("Error", "This room doesn't exist")
+        emit("Error", {"message" :"This room doesn't exist"})
         return
     if room.players.get(user_id) is None:
-        emit("Error", "This user is not in room", to=request.sid)
+        emit("Error", {"message" :"This user is not in room"}, to=request.sid)
         return
-
+    print("Room exists")
     with global_init_lock:
         room_locks.setdefault(room_id, Lock())
         # Инициализируем позицию вопроса в Redis
@@ -60,7 +62,7 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
-    emit("message","Join room success", to=request.sid)
+    emit("message",{"message" : "Join room success"}, to=request.sid)
 
 
 @socketio.on("start_quiz")
