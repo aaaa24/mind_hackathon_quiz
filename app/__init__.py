@@ -27,7 +27,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
     JWTManager(app)
-    CORS(app, origins=['http://localhost:3000', 'http://89.223.70.57'], supports_credentials=True)
+    CORS(app, origins=['http://localhost:3000', 'http://89.223.70.57', "http://89.223.70.57:3000"], supports_credentials=True)
 
     if not app.debug:
         stream_handler = StreamHandler(sys.stdout)
