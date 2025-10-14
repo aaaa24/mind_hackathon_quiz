@@ -62,7 +62,7 @@ def join_game_room(data):
     all_players_in_lobby(data)
 
 
-@socketio.on("leave_room")
+@socketio.on("disconnect")
 def leave_game_room(data):
     user_id = data['user_id']
     room_id = data['room_id']
