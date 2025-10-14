@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, create_access_token, set_access_coo
     get_jwt_identity
 from .models import Room, Player, RoomStatus
 
-from . import fake_db as db
+from . import db
 from . import redis_storage
 
 bp = Blueprint('main', __name__)
