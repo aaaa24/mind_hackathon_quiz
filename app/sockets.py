@@ -40,10 +40,10 @@ def join_game_room(data):
     room = storage.rooms.get(room_id, None)
 
     if room is None:
-        emit("Error", "This room doesn't exist")
+        emit("Error", "This room doesn't exist", to=request.sid)
         return
     if room.players.get(user_id) is None:
-        emit("Error", "This user is not in room")
+        emit("Error", "This user is not in room", to=request.sid)
         return
 
     with global_init_lock:
@@ -53,7 +53,7 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
-    emit("message","Join room success", to=room_id)
+    emit("message","Join room success", to=request.sid)
 
 
 @socketio.on("start_quiz")
@@ -62,14 +62,14 @@ def start_quiz(data):
     user_id = data.get("user_id")
 
     if not room_id:
-        emit("error", {"message": "missing room_id"})
+        emit("Error", {"message": "missing room_id"}, to=request.sid)
         return
     room = storage.rooms.get(room_id)
     if room is None:
-        emit("error", {"message": f"Room {room_id} not found"})
+        emit("Error", {"message": f"Room {room_id} not found"}, to=request.sid)
         return
     if not getattr(room, "questions", None):
-        emit("error", {"message": "No questions in this room"})
+        emit("Error", {"message": "No questions in this room"}, to=request.sid)
         return
 
     if user_id != room.owner.user_id:
@@ -84,9 +84,10 @@ def start_quiz(data):
         player.answered = False
 
     firstQuest = room.questions[0]
-    room.status = RoomStatus.QUESTION
     emit("startGame", vars(firstQuest), to=room_id)
+    question_start_times[room_id] = time()
     socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
+    room.status = RoomStatus.QUESTION
 
 
 
@@ -96,31 +97,36 @@ def answer(data):
     user_id = data.get('user_id')
     answer_text = data.get('answer')
     if not room_id or not user_id:
-        emit("error", {"message": "missing room_id or user_id"})
+        emit("error", {"message": "missing room_id or user_id"}, to=request.sid)
         return
     room = storage.rooms.get(room_id)
+
     if not room:
-        emit("error", {"message": "room not found"})
+        emit("error", {"message": "room not found"}, to=request.sid)
         return
+
+    if room.status != RoomStatus.QUESTION:
+        return
+
     if room_locks.get(room_id) is None:
-        emit("error", {"message": "room lock not initialized"})
+        emit("error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
     with room_locks[room_id]:
         start_ts = question_start_times.get(room_id)
         pos = questPosition.get(room_id)
         if start_ts is None or pos is None:
-            emit("error", {"message": "question not started"})
+            emit("error", {"message": "question not started"}, to=request.sid)
             return
         try:
             current_quest = room.questions[pos]
         except (IndexError, TypeError):
-            emit("error", {"message": "invalid question position"})
+            emit("error", {"message": "invalid question position"}, to=request.sid)
             return
 
         user = room.players.get(user_id)
         if not user:
-            emit("error", {"message": "user not in room"})
+            emit("error", {"message": "user not in room"}, to=request.sid)
             return
         if user.answered:
             return
@@ -158,8 +164,10 @@ def question_timer(room_id, time_limit):
 
     current_question = room.questions[questPosition[room_id]]
     correct_answer = current_question.correct_answer
+
     emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
     emit("need_update_leaderboard", to=room_id)
+    room.status = RoomStatus.CHECK_CORRECT_ANSWER
 
     socketio.sleep(20)
     with room_locks[room_id]:
@@ -176,7 +184,7 @@ def next_question(data):
 
     if (questPosition.get(room_id) == len(questions)-1):
         room.status = RoomStatus.FINISHED
-        emit("EndOfGame", to=room_id)
+        emit("endOfGame", to=room_id)
         questPosition.pop(room_id, None)
         question_start_times.pop(room_id, None)
         room_locks.pop(room_id, None)
@@ -189,6 +197,7 @@ def next_question(data):
         emit("get_quest", vars(next_quest), to=room_id)
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
+        room.status = RoomStatus.QUESTION
 
 
 @socketio.on("show_result")
@@ -226,9 +235,9 @@ def all_players_in_lobby(data):
     room_id = data['room_id']
     room = storage.rooms.get(room_id)
     if room is None:
-        emit("Error", {"message": "Room not found"}, to=room_id)
+        emit("Error", {"message": "Room not found"}, to=request.sid)
         return
     players = {"players": serialize_players(room.players.values()),
                "owner" : serialize_player(room.owner)}
-    emit("all_players_in_lobby", players, to=room_id)
+    emit("all_players_in_lobby", players, to=request.sid)
 
