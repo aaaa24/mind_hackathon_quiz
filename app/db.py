@@ -7,6 +7,7 @@ from app.models import Room, Question, Player
 from app.gpt import gpt_request
 import uuid
 import re
+import random
 
 
 def create_hash(password):
@@ -121,10 +122,12 @@ def get_questions(count_questions, category_ids):
             questions = []
             if data:
                 for question in data:
+                    options = question['options']
+                    random.shuffle(options)
                     questions.append(
                         Question(id=str(uuid.uuid4()),
                                  text=question['text'],
-                                 options=question['options'],
+                                 options=options,
                                  correct_answer=question['correct_answer'],
                                  time_limit=question['time_limit'],
                                  category_id=os.getenv('GPT_CATEGORY_ID')))
@@ -144,10 +147,12 @@ def get_questions(count_questions, category_ids):
     if data:
         questions = []
         for question in data:
+            options = json.loads(question['options'])["list"]
+            random.shuffle(options)
             questions.append(
                 Question(id=question['id'],
                          text=question['text'],
-                         options=json.loads(question['options'])["list"],
+                         options=options,
                          correct_answer=question['correct_answer'],
                          time_limit=question['time_limit'],
                          category_id=question['category_id']))
@@ -228,6 +233,13 @@ def bd_connect():
         else:
             return mydb
     return None
+
+
+
+#list_cinema = []
+
+#for i in list_cinema:
+ #   print(create_question('d82480da-a911-11f0-84fc-a22ec9dbc93e', i['text'], i['options'], i['correct_answer'], i['time_limit']))
 
 
 #print(sign_in("Danil", "12345"))
