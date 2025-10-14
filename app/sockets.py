@@ -42,7 +42,7 @@ def join_game_room(data):
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        socketio.emit("Error", {"message" :"This room doesn't exist"})
+        socketio.emit("Error", {"message" :"This room doesn't exist"}, to=request.sid)
         return
     user = room.players.get(user_id)
     if user is None:
@@ -125,7 +125,7 @@ def start_quiz(data):
         return
 
     if user_id != room.owner.user_id:
-        socketio.emit("Error", "Not owner try to start game")
+        socketio.emit("Error", "Not owner try to start game", to=room_id)
         return
 
     # Устанавливаем позицию вопроса в Redis
@@ -216,7 +216,7 @@ def answer(data):
                     user.score += 10
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
-            socketio.emit("answered", {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) })
+            socketio.emit("answered", {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
 
 
 def question_timer(room_id, time_limit):
@@ -295,7 +295,7 @@ def show_results(data):
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
     if not room:
-        socketio.emit("Error", "Room not found", to=room_id)
+        socketio.emit("Error", "Room not found", to=request.sid)
         return
     res = []
     players = room.players.values()
