@@ -233,12 +233,12 @@ def bd_connect():
     return None
 
 
-# print(sign_in("Danil", "12345"))
-#id1 = '572d2207-a841-11f0-8d77-cc28aa8d5d25'
-# id2 = '1a4350d1-a841-11f0-8d77-cc28aa8d5d25'
-# for i in range(15):
-#     print(create_question(id1, f"Test_Кино_{i} Какой фильм называют «самым известным ужастиком о душе, которая живёт в воде»?", ["«Сияние»", "«Пила»", "«Звонок»", "«Чужой»"], "Звонок", 10+i))
-#     print(create_question(id2, f"Test_Программирование_{i} Как вывести текст в консоль в python?", ["print()", "write()", "save()", "foo()", "bar()"], "print()", 10+i))
+#print(sign_in("Danil", "12345"))
+#id1 = '5436c61a-a8f1-11f0-84fc-a22ec9dbc93e'
+#id2 = '544e081f-a8f1-11f0-84fc-a22ec9dbc93e'
+#for i in range(15):
+#    print(create_question(id1, f"Test_Кино_{i} Какой фильм называют «самым известным ужастиком о душе, которая живёт в воде»?", ["«Сияние»", "«Пила»", "«Звонок»", "«Чужой»"], "Звонок", 10+i))
+#    print(create_question(id2, f"Test_Программирование_{i} Как вывести текст в консоль в python?", ["print()", "write()", "save()", "foo()", "bar()"], "print()", 10+i))
 # print(get_categories())
 # print(get_questions(5, [id1]))
 # print(get_questions(7, [id1, id2]))
