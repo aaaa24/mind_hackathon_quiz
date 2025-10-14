@@ -229,3 +229,13 @@ def list_rooms():
         if room and room.status == RoomStatus.WAITING
     ]
     return jsonify({'rooms': available_rooms}), 200
+
+
+@bp.route('/user/past_games', methods=['GET'])
+@jwt_required()
+def get_past_games():
+    user_id = get_jwt_identity()
+    past_games = db.get_past_games(user_id)
+    if not past_games['success']:
+        return jsonify({'message': 'No games available'}), 500
+    return jsonify({'games': past_games['games']}), 200
