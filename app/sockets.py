@@ -201,7 +201,6 @@ def answer(data):
                     user.score += 10
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
-
             socketio.emit("answered", {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) })
 
 
