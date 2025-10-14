@@ -12,8 +12,8 @@ from flask_socketio import SocketIO
 load_dotenv()
 
 # Создаём socketio-объект
-socketio = SocketIO()
 
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -27,7 +27,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
     JWTManager(app)
-    CORS(app, origins=['http://localhost:3000'], supports_credentials=True)
+    CORS(app, origins=['http://localhost:3000', 'http://89.223.70.57', "http://89.223.70.57:3000"], supports_credentials=True)
 
     if not app.debug:
         stream_handler = StreamHandler(sys.stdout)
@@ -36,11 +36,15 @@ def create_app():
         app.logger.setLevel(logging.INFO)
     app.logger.info('Flask app started')
 
-    # Инициализируем SocketIO с приложением
-    socketio.init_app( app,
-    cors_allowed_origins="*",
-    logger=True,        
-    engineio_logger=True)
+    socketio.init_app(
+        app,
+        cors_allowed_origins="*",
+        logger=True,
+        engineio_logger=True,
+        async_mode="eventlet"
+    )
+
+    from . import sockets
 
     from .routes import bp
     app.register_blueprint(bp)

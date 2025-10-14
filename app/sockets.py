@@ -1,17 +1,14 @@
 from typing import Dict
 from flask_socketio import SocketIO, emit, join_room
+from gunicorn.glogging import Logger
+
 from . import redis_storage
 from .models import RoomStatus
 from threading import Lock
 from time import time
 from flask import request
 
-socketio = SocketIO()
-
-
-def init_socketio(app):
-    socketio.init_app(app)
-
+from . import socketio
 
 # key = room_id, value = position of quest
 questPosition: Dict[str, int] = {}
@@ -45,12 +42,12 @@ def join_game_room(data):
     room = redis_storage.get_room(room_id)
 
     if room is None:
-        emit("Error", "This room doesn't exist")
+        emit("Error", {"message" :"This room doesn't exist"})
         return
     if room.players.get(user_id) is None:
-        emit("Error", "This user is not in room", to=request.sid)
+        emit("Error", {"message" :"This user is not in room"}, to=request.sid)
         return
-
+    print("Room exists")
     with global_init_lock:
         room_locks.setdefault(room_id, Lock())
         # Инициализируем позицию вопроса в Redis
@@ -60,7 +57,7 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
-    emit("message","Join room success", to=request.sid)
+    emit("message",{"message" : "Join room success"}, to=request.sid)
 
 
 @socketio.on("start_quiz")
@@ -292,5 +289,6 @@ def all_players_in_lobby(data):
         return
     players = {"players": serialize_players(room.players.values()),
                "owner" : serialize_player(room.owner)}
+    print(players);
     emit("all_players_in_lobby", players, to=request.sid)
 
