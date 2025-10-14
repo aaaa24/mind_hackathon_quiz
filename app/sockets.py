@@ -222,6 +222,7 @@ def all_players_in_lobby(data):
     if room is None:
         emit("Error", {"message": "Room not found"}, to=room_id)
         return
-    players = {"players": serialize_players(room.players.values())}
+    players = {"players": serialize_players(room.players.values()),
+               "owner" : serialize_player(room.owner)}
     emit("all_players_in_lobby", players, to=room_id)
 
