@@ -65,13 +65,23 @@ def join_game_room(data):
 @socketio.on("leave_room")
 @socketio.on("disconnect")
 def leave_game_room(data=None):
-    user_id, room_id = redis_storage.get_request_sid_data(request.sid)
+    result = redis_storage.get_request_sid_data(request.sid)
+    if not result:
+        print(f"No SID mapping found for {request.sid}")
+        return
+
+    user_id, room_id = result
 
     # Преобразуем байты в строки, если нужно
     if isinstance(room_id, bytes):
         room_id = room_id.decode()
     if isinstance(user_id, bytes):
         user_id = user_id.decode()
+
+    if not user_id or not room_id:
+        print(f"Missing user_id or room_id for SID: {request.sid}")
+        socketio.emit("Error", {"message": "Session data not found"}, to=request.sid)
+        return
 
     if not room_id:
         print(f"No room_id found for SID: {request.sid}")
@@ -81,6 +91,7 @@ def leave_game_room(data=None):
         leave_room(room_id)
     except Exception as e:
         print(f"Error leaving room: {e}")
+        return
 
     room = redis_storage.get_room(room_id)
 
