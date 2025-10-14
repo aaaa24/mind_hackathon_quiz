@@ -4,6 +4,7 @@ from . import redis_storage
 from .models import RoomStatus
 from threading import Lock
 from time import time
+from flask import request
 
 socketio = SocketIO()
 
