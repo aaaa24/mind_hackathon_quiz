@@ -59,6 +59,8 @@ def join_game_room(data):
 @socketio.on("start_quiz")
 def start_quiz(data):
     room_id = data.get("room_id")
+    user_id = data.get("user_id")
+
     if not room_id:
         emit("error", {"message": "missing room_id"})
         return
@@ -68,6 +70,10 @@ def start_quiz(data):
         return
     if not getattr(room, "questions", None):
         emit("error", {"message": "No questions in this room"})
+        return
+
+    if user_id != room.owner.user_id:
+        emit("Error", "Not owner try to start game")
         return
 
     questPosition[room_id] = 0
