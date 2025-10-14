@@ -10,7 +10,6 @@ socketio = SocketIO()
 
 
 # key = room_id, value = position of quest
-questPosition: Dict[str, int] = {}
 room_locks: Dict[str, Lock] = {}
 question_start_times: Dict[str, float] = {}
 global_init_lock = Lock()
@@ -75,8 +74,22 @@ def leave_game_room(data):
         return
     leave_room(room_id)
     room.players.pop(user_id)
+    if player.user_id == room.owner.user_id:
+        other_players = [p for p in room.players.values()]
+        if len(other_players) != 0:
+            room.owner = other_players[0]
+            redis_storage.clear_room_data(room_id)
+            room_locks.pop(room_id)
+            question_start_times.pop(room_id)
+
+
+
     redis_storage.save_room(room_id, room)
     all_players_in_lobby(data)
+
+
+
+
 
 
 
