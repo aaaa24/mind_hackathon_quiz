@@ -16,7 +16,7 @@ def generate_code(length: int = 6) -> str:
     return secrets.token_urlsafe(length)[:length].upper()
 
 
-@bp.route('/user/signup', methods=['POST'])
+@bp.route('/api/user/signup', methods=['POST'])
 def signup():
     data = request.json
     login = data.get('login')
@@ -33,7 +33,7 @@ def signup():
     return jsonify({'status': 'OK'}), 201
 
 
-@bp.route('/user/signin', methods=['POST'])
+@bp.route('/api/user/signin', methods=['POST'])
 def signin():
     data = request.json
     login = data.get('login')
@@ -54,7 +54,7 @@ def signin():
     return resp
 
 
-@bp.route('/user/logout', methods=['POST'])
+@bp.route('/api/user/logout', methods=['POST'])
 @jwt_required()
 def logout():
     resp = make_response(jsonify({'status': 'OK'}), 200)
@@ -63,7 +63,7 @@ def logout():
     return resp
 
 
-@bp.route('/user/me', methods=['GET'])
+@bp.route('/api/user/me', methods=['GET'])
 @jwt_required()
 def me():
     user_id = get_jwt_identity()
@@ -76,7 +76,7 @@ def me():
     return jsonify({'login': user['login'], 'user_id': user_id}), 200
 
 
-@bp.route('/rooms/create', methods=['POST'])
+@bp.route('/api/rooms/create', methods=['POST'])
 @jwt_required()
 def create_room():
     data = request.json
@@ -124,7 +124,7 @@ def create_room():
     return jsonify({'room_code': code, 'room_id': room_id}), 201
 
 
-@bp.route('/rooms/join', methods=['POST'])
+@bp.route('/api/rooms/join', methods=['POST'])
 @jwt_required()
 def join_room_by_code():
     data = request.json
@@ -171,7 +171,7 @@ def join_room_by_code():
     return jsonify({'room_id': room_id}), 200
 
 
-@bp.route('/categories/list', methods=['GET'])
+@bp.route('/api/categories/list', methods=['GET'])
 @jwt_required()
 def get_categories_list():
     categories = db.get_categories()
@@ -180,7 +180,7 @@ def get_categories_list():
     return jsonify({'categories': categories['categories']})
 
 
-@bp.route('/rooms/list', methods=['GET'])
+@bp.route('/api/rooms/list', methods=['GET'])
 @jwt_required()
 def list_rooms():
     available_rooms = []
@@ -200,7 +200,7 @@ def list_rooms():
     return jsonify({'rooms': available_rooms}), 200
 
 
-@bp.route('/user/past_games', methods=['GET'])
+@bp.route('/api/user/past_games', methods=['GET'])
 @jwt_required()
 def get_past_games():
     user_id = get_jwt_identity()
@@ -210,7 +210,7 @@ def get_past_games():
     return jsonify({'games': past_games['games']}), 200
 
 
-@bp.route('/rooms/<room_code>/room_id', methods=['GET'])
+@bp.route('/api/rooms/<room_code>/room_id', methods=['GET'])
 @jwt_required()
 def get_room_id_by_room_code(room_code):
     user_id = get_jwt_identity()

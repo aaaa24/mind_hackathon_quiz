@@ -96,7 +96,7 @@ def get_categories():
         categories = []
         for category in data:
             categories.append({"id": category["id"], "name": category["name"]})
-        return {"success": True, "categories": [categories]}
+        return {"success": True, "categories": categories}
     else:
         return {"success": False, "categories": None}
 
@@ -216,7 +216,7 @@ def bd_connect():
     while k <= 5:
         try:
             mydb = mysql.connector.connect(
-                host=os.getenv('DB_HOST'),
+                host=os.getenv('DB_HOST', "host.docker.internal"),
                 user=os.getenv('DB_USER'),
                 port=os.getenv('DB_PORT'),
                 password=os.getenv('DB_PASSWORD'),
