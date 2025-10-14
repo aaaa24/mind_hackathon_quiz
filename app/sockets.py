@@ -67,8 +67,9 @@ def join_game_room(data):
 def leave_game_room(data):
     user_id, room_id = redis_storage.get_request_sid_data(request.sid)
     leave_room(room_id)
-    print("CHECK")
+    print(f"CHECK {user_id} and {room_id}")
     room = redis_storage.get_room(room_id)
+
     if room is None:
         socketio.emit("Error", {"message": "This room doesn't exist"})
         return

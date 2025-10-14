@@ -22,7 +22,7 @@ def delete_request_sid(request_sid):
 def get_request_sid_data(request_sid) -> Optional[tuple]:
     user_id = r.get(f"sid_user:{request_sid}")
     room_id = r.get(f"sid_room:{request_sid}")
-    if user_id and room_id:
+    if (not user_id is None) and  (not room_id is None):
         return user_id, room_id
     return None
 
