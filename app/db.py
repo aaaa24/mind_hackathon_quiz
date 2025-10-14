@@ -5,6 +5,9 @@ import os
 from dotenv import load_dotenv
 from typing import List
 from app.models import Room, Question, Player
+from gpt import gpt_request
+import uuid
+
 
 load_dotenv()
 
@@ -102,7 +105,31 @@ def get_categories():
 
 
 def get_questions(count_questions, category_ids):
-    if not count_questions: count_questions = 10
+    if not count_questions or count_questions < 1: count_questions = 10
+    if os.getenv('GPT_CATEGORY_ID') in category_ids:
+        if len(category_ids) == 1:
+            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]"
+            user_text = f"n = {count_questions}, topics = Любая тематика на твое усмотрение"
+        else:
+            category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
+            system = "Небходимо придумать n вовросов на тематики: topics по запросу пользователей. Вернуть нужно только список словарей в формате [{'text': (Текст вопроса),'options': {[(ответ_1), (ответ_2), (ответ_3), (ответ_4)]}, 'correct_answer': (равильный ответ), 'time_limit': (Ограничение времени на вопрос от 30 до 60)}]"
+            user_text = f"n = {count_questions}, topics = {category_ids}"
+        data = list(gpt_request(system, user_text))
+        questions = []
+        if data:
+            for question in data:
+                questions.append(
+                    Question(id=str(uuid.uuid4()),
+                             text=question['text'],
+                             options=question['options'],
+                             correct_answer=question['correct_answer'],
+                             time_limit=question['time_limit'],
+                             category_id=os.getenv('GPT_CATEGORY_ID')))
+            return {'success': True, 'questions': questions}
+        else:
+            return {'success': False, 'questions': None}
+
+
     sql = "SELECT * FROM questions "
     if category_ids:
         placeholders = ', '.join(['%s'] * len(category_ids))
@@ -117,7 +144,8 @@ def get_questions(count_questions, category_ids):
                          text=question['text'],
                          options=json.loads(question['options'])["list"],
                          correct_answer=question['correct_answer'],
-                         time_limit=question['time_limit']))
+                         time_limit=question['time_limit'],
+                         category_id=question['category_id']))
         return {'success': True, 'questions': questions}
     else:
         return {'success': True, 'questions': None}

@@ -63,6 +63,8 @@ def join_game_room(data):
 @socketio.on("start_quiz")
 def start_quiz(data):
     room_id = data.get("room_id")
+    user_id = data.get("user_id")
+
     if not room_id:
         emit("error", {"message": "missing room_id"})
         return
@@ -73,6 +75,10 @@ def start_quiz(data):
         return
     if not getattr(room, "questions", None):
         emit("error", {"message": "No questions in this room"})
+        return
+
+    if user_id != room.owner.user_id:
+        emit("Error", "Not owner try to start game")
         return
 
     # Устанавливаем позицию вопроса в Redis
@@ -273,5 +279,6 @@ def all_players_in_lobby(data):
     if room is None:
         emit("Error", {"message": "Room not found"}, to=room_id)
         return
-    players = {"players": serialize_players(room.players.values())}
+    players = {"players": serialize_players(room.players.values()),
+               "owner" : serialize_player(room.owner)}
     emit("all_players_in_lobby", players, to=room_id)

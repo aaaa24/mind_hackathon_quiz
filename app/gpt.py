@@ -1,16 +1,24 @@
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 ai_client = OpenAI(
-    api_key='AIzaSyABja4aT9kNSCUbRVl6GP3Pvsk2lRHw8DA',
-    base_url='https://my-openai-gemini-demo.vercel.app/v1/'
+    api_key=os.getenv('API_KEY'),
+    base_url=os.getenv('BASE_URL')
 )
 
 
-def gpt_request(text):
-    messages = [{
-        'role': 'user',
-        'content': text
-    }]
+def gpt_request(system, text):
+    messages = [
+        {'role': 'system',
+         'content': system
+         },
+        {
+            'role': 'user',
+            'content': text
+        }]
     response = ai_client.chat.completions.create(
         model='gemini-2.5-flash-lite',
         messages=messages,
