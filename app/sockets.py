@@ -89,6 +89,7 @@ def leave_game_room(data=None):
 
     try:
         leave_room(room_id)
+        print("Leave room success")
     except Exception as e:
         print(f"Error leaving room: {e}")
         return
@@ -116,6 +117,7 @@ def leave_game_room(data=None):
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
             all_players_in_lobby({"room_id":room_id})
+        print("Player was deleted from room")
 
 
 @socketio.on("start_quiz")
@@ -168,6 +170,7 @@ def answer(data):
     answer_text = data.get('answer')
     if not room_id or not user_id:
         socketio.emit("Error", {"message": "missing room_id or user_id"}, to=request.sid)
+        print("Not room_id or user_id")
         return
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
@@ -200,6 +203,7 @@ def answer(data):
             socketio.emit("Error", {"message": "user not in room"}, to=request.sid)
             return
         if user.answered:
+            print("OKAK")
             return
 
         past_time = time() - start_ts
@@ -228,7 +232,7 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             socketio.emit("answered", {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
-
+            print("New answers was fixed")
 
 def question_timer(room_id, time_limit):
 
@@ -249,11 +253,12 @@ def question_timer(room_id, time_limit):
     current_question = room.questions[pos]
     correct_answer = current_question.correct_answer
 
-    socketio.emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+    sleeptime = 5
+    socketio.emit("show_correct_answer", {"correct_answer": correct_answer, "sleep_timer" : sleeptime}, to=room_id)
     socketio.emit("need_update_leaderboard", to=room_id)
     room.status = RoomStatus.CHECK_CORRECT_ANSWER
 
-    socketio.sleep(5)
+    socketio.sleep(sleeptime)
 
     with room_locks[room_id]:
         next_question({"room_id": room_id})
@@ -268,6 +273,9 @@ def next_question(data):
         socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
+    for p in room.players.values():
+        p.answered=False
+        p.answer=""
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
