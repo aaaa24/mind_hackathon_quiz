@@ -242,11 +242,9 @@ def answer(data):
         return
 
     if room.status != RoomStatus.QUESTION:
-        print("PIZDA")
         return
 
     if room_locks.get(room_id) is None:
-        print("HYILO")
         socketio.emit("Error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
@@ -270,7 +268,7 @@ def answer(data):
         if user.answered:
             print("OKAK")
             return
-        print("Blat")
+        
         past_time = time() - start_ts
         lim = getattr(current_quest, "time_limit", 0)
         if lim <= 0:
@@ -279,12 +277,12 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             return
-        print("EBANAT")
+        
         if past_time <= lim:
             user.answered = True
             user.answer = answer_text
             part = lim / 4.0
-            print("SUKA")
+            
             if answer_text == current_quest.correct_answer:
                 user.correct += 1
                 if 0 <= past_time < part:
