@@ -104,6 +104,12 @@ def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
     count_questions = min(count_questions, 50)
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
+        category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
+        categories = get_categories()
+        for k in categories['categories']:
+            if k['id'] in category_ids:
+                category_ids.remove(k['id'])
+                category_ids.append(k['name'])
         return get_gpt_questions(count_questions, category_ids)
     sql = "SELECT * FROM questions "
     if category_ids:
@@ -149,13 +155,11 @@ def get_past_games(user_id):
     if data:
         games = []
         for row in data:
-            owner = Player(user_id=row["owner_id"], username=row["owner_username"])
-
             game = {
                 "score": row["score"],
                 "correct": row["correct"],
-                "owner_id": owner.user_id,
-                "owner_username": owner.username,
+                "owner_id": row["owner_id"],
+                "owner_username": row["owner_username"],
                 "amount": row["amount"],
                 "creation": row["creation"],
                 "end": row["end"],

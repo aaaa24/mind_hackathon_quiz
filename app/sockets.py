@@ -291,16 +291,17 @@ def answer(data):
 
 def finish_question_early(room_id):
     """Фоновая задача — пауза перед следующим вопросом при досрочном завершении."""
+    with room_locks[room_id]:
+        room = redis_storage.get_room(room_id)
+        if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
+            return
+    # Ждём перед следующим вопросом
     socketio.sleep(5)
     with room_locks[room_id]:
         room = redis_storage.get_room(room_id)
         if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
             return
-        # Помечаем, что вопрос завершён
-        room.status = RoomStatus.CHECK_CORRECT_ANSWER
-        redis_storage.save_room(room_id, room)
         next_question({"room_id": room_id})
-
 
 def question_timer(room_id, time_limit):
     socketio.sleep(time_limit)
@@ -319,9 +320,10 @@ def question_timer(room_id, time_limit):
     correct_answer = current_question.correct_answer
 
     sleeptime = 5
+    room.status = RoomStatus.CHECK_CORRECT_ANSWER
     socketio.emit("show_correct_answer", {"correct_answer": correct_answer, "sleep_timer" : sleeptime}, to=room_id)
     socketio.emit("need_update_leaderboard", to=room_id)
-    room.status = RoomStatus.CHECK_CORRECT_ANSWER
+    redis_storage.save_room(room_id,room)
 
     socketio.sleep(sleeptime)
 
@@ -333,14 +335,13 @@ def next_question(data):
     room_id = data['room_id']
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
-
-    if room is None:
-        socketio.emit("Error", "This room doesn't exist", to=request.sid)
+    # Новая проверка: только если статус CHECK_CORRECT_ANSWER, разрешено переходить к следующему вопросу
+    if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
         return
     questions = room.questions
     for p in room.players.values():
-        p.answered=False
-        p.answer=""
+        p.answered = False
+        p.answer = ""
     redis_storage.save_room(room_id, room)
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
