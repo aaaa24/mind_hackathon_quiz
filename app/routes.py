@@ -185,18 +185,22 @@ def get_categories_list():
 @bp.route('/api/rooms/list', methods=['GET'])
 @jwt_required()
 def list_rooms():
+    categories = db.get_categories()['categories']
     available_rooms = []
     # Получаем список активных комнат
     active_room_ids = redis_storage.get_active_rooms()
     for room_id in active_room_ids:
         room = redis_storage.get_room(room_id)
         if room and room.status == RoomStatus.WAITING:
+            s = set(question.category_id for question in room.questions)
             available_rooms.append({
                 'room_id': room.room_id,
                 'owner': room.owner.username,
                 'player_count': len(room.players),
                 'max_players': room.max_players,
-                'room_code': room.room_code  # Берём из самой комнаты
+                'room_code': room.room_code,
+                'question_count': len(room.questions),
+                'category_names': [cat['name'] for cat in categories if cat['id'] in s]
             })
 
     return jsonify({'rooms': available_rooms}), 200
