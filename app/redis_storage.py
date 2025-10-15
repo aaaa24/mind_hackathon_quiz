@@ -1,98 +1,83 @@
 import redis
 import pickle
-from typing import Optional, List
-from .models import Room
 import os
 
-
 # Подключение к Redis
-r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), db=0, decode_responses=False)
+r = redis.Redis(host=os.getenv('REDIS_HOST'), port=int(os.getenv('REDIS_PORT')), db=0, decode_responses=False)
 
 
-print(os.getenv('REDIS_HOST'), os.getenv('REDIS_PORT'));
-
-def save_request_sid(request_sid, user_id, room_id ):
+def save_request_sid(request_sid, user_id, room_id):
     r.set(f"sid_user:{request_sid}", user_id)
     r.set(f"sid_room:{request_sid}", room_id)
+
 
 def delete_request_sid(request_sid):
     r.delete(f"sid_user:{request_sid}")
     r.delete(f"sid_room:{request_sid}")
 
-def get_request_sid_data(request_sid) -> Optional[tuple]:
+
+def get_request_sid_data(request_sid):
     user_id = r.get(f"sid_user:{request_sid}")
     room_id = r.get(f"sid_room:{request_sid}")
-    if (not user_id is None) and  (not room_id is None):
+    if (not user_id is None) and (not room_id is None):
         return user_id, room_id
     return None
 
-def save_room(room_id: str, room: Room):
-    """Сохранить комнату в Redis."""
+
+def save_room(room_id, room):
     r.set(f"room:{room_id}", pickle.dumps(room))
 
 
-def get_room(room_id: str) -> Optional[Room]:
-    """Получить комнату из Redis."""
+def get_room(room_id):
     data = r.get(f"room:{room_id}")
     if data:
         return pickle.loads(data)
     return None
 
 
-def delete_room(room_id: str):
-    """Удалить комнату из Redis."""
+def delete_room(room_id):
     r.delete(f"room:{room_id}")
 
 
-def save_room_code(code: str, room_id: str):
-    """Сохранить сопоставление код -> room_id."""
+def save_room_code(code, room_id):
     r.set(f"code:{code}", room_id.encode('utf-8'))
 
 
-def get_room_id_by_code(code: str) -> Optional[str]:
-    """Получить room_id по коду."""
+def get_room_id_by_code(code):
     room_id = r.get(f"code:{code}")
     return room_id.decode('utf-8') if room_id else None
 
 
-def delete_room_code(code: str):
-    """Удалить код комнаты."""
+def delete_room_code(code):
     r.delete(f"code:{code}")
 
 
-def set_quest_position(room_id: str, index: int):
-    """Сохранить индекс текущего вопроса."""
+def set_quest_position(room_id, index):
     r.set(f"quest_pos:{room_id}", index)
 
 
-def get_quest_position(room_id: str) -> Optional[int]:
-    """Получить индекс текущего вопроса."""
+def get_quest_position(room_id):
     pos = r.get(f"quest_pos:{room_id}")
     return int(pos) if pos else None
 
 
-def delete_quest_position(room_id: str):
-    """Удалить индекс вопроса."""
+def delete_quest_position(room_id):
     r.delete(f"quest_pos:{room_id}")
 
 
-def add_active_room(room_id: str):
-    """Добавить комнату в список активных."""
+def add_active_room(room_id):
     r.sadd("active_rooms", room_id.encode('utf-8'))
 
 
-def remove_active_room(room_id: str):
-    """Удалить комнату из списка активных."""
+def remove_active_room(room_id):
     r.srem("active_rooms", room_id.encode('utf-8'))
 
 
-def get_active_rooms() -> List[str]:
-    """Получить список всех активных комнат."""
+def get_active_rooms():
     room_ids = r.smembers("active_rooms")
     return [room_id.decode('utf-8') for room_id in room_ids]
 
 
-def clear_room_data(room_id: str):
-    """Удалить все данные комнаты из Redis."""
+def clear_room_data(room_id):
     delete_room(room_id)
     delete_quest_position(room_id)
