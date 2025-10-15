@@ -102,6 +102,7 @@ def leave_game_room(data):
         socketio.emit("Error", {"message": "This player doesn't exist"}, to=request.sid)
         return
     room.players.pop(user_id, None)
+    print("Player was deleted from room")
     if player.user_id == room.owner.user_id:
         other_players = [p for p in room.players.values()]
         if len(other_players) == 0:
@@ -113,7 +114,7 @@ def leave_game_room(data):
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
             all_players_in_lobby({"room_id":room_id})
-        print("Player was deleted from room")
+
 
 
 @socketio.on("disconnect")
@@ -276,15 +277,37 @@ def answer(data):
             socketio.emit("answered",
                           {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
+    all_answered = all(p.answered for p in room.players.values())
+    if all_answered:
+        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+        room.status = RoomStatus.CHECK_CORRECT_ANSWER
+        redis_storage.save_room(room_id, room)
+
+        correct_answer = current_quest.correct_answer
+        socketio.emit("show_correct_answer", {"correct_answer": correct_answer, "sleep_timer": 5}, to=room_id)
+        socketio.emit("need_update_leaderboard", to=room_id)
+
+        socketio.start_background_task(finish_question_early, room_id)
+
+def finish_question_early(room_id):
+    """Фоновая задача — пауза перед следующим вопросом при досрочном завершении."""
+    socketio.sleep(5)
+    with room_locks[room_id]:
+        room = redis_storage.get_room(room_id)
+        if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
+            return
+        # Помечаем, что вопрос завершён
+        room.status = RoomStatus.CHECK_CORRECT_ANSWER
+        redis_storage.save_room(room_id, room)
+        next_question({"room_id": room_id})
+
 
 def question_timer(room_id, time_limit):
     socketio.sleep(time_limit)
 
-    # Получаем комнату из Redis
+    # Проверяем, не завершён ли вопрос досрочно
     room = redis_storage.get_room(room_id)
     if not room or room.status != RoomStatus.QUESTION:
-        print(room.room_id)
-        print(room.status)
         return
 
     # Получаем позицию вопроса из Redis
