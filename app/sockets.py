@@ -223,11 +223,9 @@ def answer(data):
         return
 
     if room.status != RoomStatus.QUESTION:
-        print("PIZDA")
         return
 
     if room_locks.get(room_id) is None:
-        print("HYILO")
         socketio.emit("Error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
@@ -249,9 +247,7 @@ def answer(data):
             socketio.emit("Error", {"message": "user not in room"}, to=request.sid)
             return
         if user.answered:
-            print("OKAK")
             return
-        print("Blat")
         past_time = time() - start_ts
         lim = getattr(current_quest, "time_limit", 0)
         if lim <= 0:
@@ -259,13 +255,17 @@ def answer(data):
             user.answer = answer_text
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
+            # Проверяем, ответили ли все
+            all_answered = all(p.answered for p in room.players.values())
+            if all_answered:
+                print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+                room.status = RoomStatus.CHECK_CORRECT_ANSWER
+                redis_storage.save_room(room_id, room)
             return
-        print("EBANAT")
         if past_time <= lim:
             user.answered = True
             user.answer = answer_text
             part = lim / 4.0
-            print("SUKA")
             if answer_text == current_quest.correct_answer:
                 user.correct += 1
                 if 0 <= past_time < part:
@@ -281,6 +281,12 @@ def answer(data):
             socketio.emit("answered",
                           {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
+            # Проверяем, ответили ли все
+            all_answered = all(p.answered for p in room.players.values())
+            if all_answered:
+                print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+                room.status = RoomStatus.CHECK_CORRECT_ANSWER
+                redis_storage.save_room(room_id, room)
 
 
 def question_timer(room_id, time_limit):
@@ -357,15 +363,6 @@ def next_question(data):
         room.status = RoomStatus.QUESTION
         redis_storage.save_room(room_id, room)
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
-
-
-
-    all_answered = all(p.answered for p in room.players.values())
-    if all_answered:
-        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
-        room.status = RoomStatus.CHECK_CORRECT_ANSWER
-        redis_storage.save_room(room_id, room)
-
 
 
 @socketio.on("show_result")
