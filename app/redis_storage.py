@@ -6,24 +6,6 @@ import os
 r = redis.Redis(host=os.getenv('REDIS_HOST'), port=int(os.getenv('REDIS_PORT')), db=0, decode_responses=False)
 
 
-def save_request_sid(request_sid, user_id, room_id):
-    r.set(f"sid_user:{request_sid}", user_id)
-    r.set(f"sid_room:{request_sid}", room_id)
-
-
-def delete_request_sid(request_sid):
-    r.delete(f"sid_user:{request_sid}")
-    r.delete(f"sid_room:{request_sid}")
-
-
-def get_request_sid_data(request_sid):
-    user_id = r.get(f"sid_user:{request_sid}")
-    room_id = r.get(f"sid_room:{request_sid}")
-    if (not user_id is None) and (not room_id is None):
-        return user_id, room_id
-    return None
-
-
 def save_room(room_id, room):
     r.set(f"room:{room_id}", pickle.dumps(room))
 

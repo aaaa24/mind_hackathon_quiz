@@ -66,20 +66,15 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
-    redis_storage.save_request_sid(request.sid, user_id, room_id)
     socketio.emit("message", {"message": "Join room success"}, to=request.sid)
     all_players_in_lobby(data)
 
 
 @socketio.on("leave_room")
 @socketio.on("disconnect")
-def leave_game_room(data=None):
-    result = redis_storage.get_request_sid_data(request.sid)
-    if not result:
-        print(f"No SID mapping found for {request.sid}")
-        return
-
-    user_id, room_id = result
+def leave_game_room(data):
+    room_id = data['room_id']
+    user_id = data['user_id']
 
     if isinstance(room_id, bytes):
         room_id = room_id.decode()
@@ -113,14 +108,13 @@ def leave_game_room(data=None):
         socketio.emit("Error", {"message": "This player doesn't exist"}, to=request.sid)
         return
     room.players.pop(user_id, None)
-    redis_storage.delete_request_sid(request.sid)
     if player.user_id == room.owner.user_id:
         other_players = [p for p in room.players.values()]
         if len(other_players) == 0:
             redis_storage.clear_room_data(room_id)
             room_locks.pop(room_id)
             question_start_times.pop(room_id)
-
+            print("Room was deleted")
         else:
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
@@ -239,7 +233,7 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             socketio.emit("answered",
-                          {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
+                          {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
 
 def question_timer(room_id, time_limit):
