@@ -76,11 +76,7 @@ def leave_game_room(data):
     room_id = data['room_id']
     user_id = data['user_id']
 
-    if isinstance(room_id, bytes):
-        room_id = room_id.decode()
-    if isinstance(user_id, bytes):
-        user_id = user_id.decode()
-
+    
     if not user_id or not room_id:
         print(f"Missing user_id or room_id for SID: {request.sid}")
         socketio.emit("Error", {"message": "Session data not found"}, to=request.sid)
