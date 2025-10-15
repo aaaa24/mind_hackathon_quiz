@@ -82,7 +82,7 @@ def save_room(room: Room):
         place += 1
     sql = sql[:-2]
     sql += ';'
-    put_players = put_to_bd("INSERT INTO rooms_users (id, user_id, score, correct, place) VALUES ", params)
+    put_players = put_to_bd("INSERT INTO rooms_users (room_id, user_id, score, correct, place) VALUES ", params)
     if put_room and put_players:
         return {'success': True}
     else:
