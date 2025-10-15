@@ -117,6 +117,19 @@ def leave_game_room(data):
             all_players_in_lobby({"room_id":room_id})
 
 
+@socketio.on("room_status")
+def status_room(data):
+    room_id = data['room_id']
+    if room_id is None:
+        socketio.emit("Error", {"message": "This room_id doesn't exist"}, to=request.sid)
+        return
+    room = redis_storage.get_room(room_id)
+    res = {
+        "status" : room.status,
+        "question" : serialize_question(room.questions[redis_storage.get_quest_position(room_id)])
+    }
+    socketio.emit("room_status", res, to=room_id)
+
 
 @socketio.on("disconnect")
 def disconnect():
