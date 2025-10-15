@@ -66,17 +66,15 @@ def join_game_room(data):
 
     print(f"Received data = {data}")
     join_room(room_id)
+    redis_storage.save_request_sid(request.sid, user_id, room_id)
     socketio.emit("message", {"message": "Join room success"}, to=request.sid)
     all_players_in_lobby(data)
 
 
 @socketio.on("leave_room")
-@socketio.on("disconnect")
 def leave_game_room(data):
     room_id = data['room_id']
     user_id = data['user_id']
-
-    
     if not user_id or not room_id:
         print(f"Missing user_id or room_id for SID: {request.sid}")
         socketio.emit("Error", {"message": "Session data not found"}, to=request.sid)
@@ -115,6 +113,53 @@ def leave_game_room(data):
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
             all_players_in_lobby({"room_id":room_id})
+        print("Player was deleted from room")
+
+
+@socketio.on("disconnect")
+def disconnect():
+
+    user_id, room_id = redis_storage.get_request_sid_data(request.sid)
+
+    if not user_id or not room_id:
+        print(f"Missing user_id or room_id for SID: {request.sid}")
+        socketio.emit("Error", {"message": "Session data not found"}, to=request.sid)
+        return
+
+    if not room_id:
+        print(f"No room_id found for SID: {request.sid}")
+        return
+
+    try:
+        leave_room(room_id)
+        redis_storage.delete_request_sid(request.sid)
+        print("Leave room success")
+    except Exception as e:
+        print(f"Error leaving room: {e}")
+        return
+
+    room = redis_storage.get_room(room_id)
+
+    if room is None:
+        socketio.emit("Error", {"message": "This room doesn't exist"}, to=request.sid)
+        return
+    player = room.players.get(user_id)
+
+    if player is None:
+        socketio.emit("Error", {"message": "This player doesn't exist"}, to=request.sid)
+        return
+    room.players.pop(user_id, None)
+    if player.user_id == room.owner.user_id:
+        other_players = [p for p in room.players.values()]
+        if len(other_players) == 0:
+            redis_storage.clear_room_data(room_id)
+            room_locks.pop(room_id)
+            question_start_times.pop(room_id)
+            print("Room was deleted")
+        else:
+            room.owner = other_players[0]
+            redis_storage.save_room(room_id, room)
+            all_players_in_lobby({"room_id": room_id})
         print("Player was deleted from room")
 
 
