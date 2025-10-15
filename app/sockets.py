@@ -1,3 +1,4 @@
+import datetime
 from threading import Lock
 from time import time
 from typing import Dict
@@ -192,8 +193,8 @@ def start_quiz(data):
         player.correct = 0
         player.answer = ""
         player.answered = False
-
-    # Сохраняем обновлённую комнату в Redis
+    room.timer_start = datetime.time()
+    # Сохраняем об новлённую комнату в Redis
     redis_storage.save_room(room_id, room)
 
     firstQuest = room.questions[0]
@@ -277,31 +278,7 @@ def answer(data):
             socketio.emit("answered",
                           {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
-    all_answered = all(p.answered for p in room.players.values())
-    if all_answered:
-        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
-        room.status = RoomStatus.CHECK_CORRECT_ANSWER
-        redis_storage.save_room(room_id, room)
 
-        correct_answer = current_quest.correct_answer
-        socketio.emit("show_correct_answer", {"correct_answer": correct_answer, "sleep_timer": 5}, to=room_id)
-        socketio.emit("need_update_leaderboard", to=room_id)
-
-        socketio.start_background_task(finish_question_early, room_id)
-
-def finish_question_early(room_id):
-    """Фоновая задача — пауза перед следующим вопросом при досрочном завершении."""
-    with room_locks[room_id]:
-        room = redis_storage.get_room(room_id)
-        if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
-            return
-    # Ждём перед следующим вопросом
-    socketio.sleep(5)
-    with room_locks[room_id]:
-        room = redis_storage.get_room(room_id)
-        if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
-            return
-        next_question({"room_id": room_id})
 
 def question_timer(room_id, time_limit):
     socketio.sleep(time_limit)
@@ -335,13 +312,14 @@ def next_question(data):
     room_id = data['room_id']
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
-    # Новая проверка: только если статус CHECK_CORRECT_ANSWER, разрешено переходить к следующему вопросу
-    if not room or room.status != RoomStatus.CHECK_CORRECT_ANSWER:
+
+    if room is None:
+        socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
     for p in room.players.values():
-        p.answered = False
-        p.answer = ""
+        p.answered=False
+        p.answer=""
     redis_storage.save_room(room_id, room)
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -352,18 +330,18 @@ def next_question(data):
     if pos == len(questions) - 1:
         room.status = RoomStatus.FINISHED
         # Сохраняем обновлённую комнату в Redis
+        room.timer_end = datetime.time()
         redis_storage.save_room(room_id, room)
+        db.save_room(room)
         # Удаляем комнату из списка активных
         redis_storage.remove_active_room(room_id)
         socketio.emit("endOfGame", to=room_id)
-        db.save_room(room)
         # Удаляем позицию вопроса из Redis
         redis_storage.delete_quest_position(room_id)
         # Убираем локальные данные
         question_start_times.pop(room_id, None)
         room_locks.pop(room_id, None)
         return
-
     else:
         next_question_position = pos + 1
         next_quest = questions[next_question_position]
@@ -373,7 +351,7 @@ def next_question(data):
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
-        redis_storage.save_room(room_id, room)
+
 
 
 @socketio.on("show_result")
