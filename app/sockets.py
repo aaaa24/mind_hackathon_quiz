@@ -297,12 +297,15 @@ def answer(data):
 
 
 def question_timer(room_id, time_limit):
-    socketio.sleep(time_limit)
 
-    # Проверяем, не завершён ли вопрос досрочно
-    room = redis_storage.get_room(room_id)
-    if not room or room.status != RoomStatus.QUESTION:
-        return
+    for _ in range(time_limit):
+        socketio.sleep(1)
+        room = redis_storage.get_room(room_id)
+        if not room:
+            return
+        if room.status != RoomStatus.QUESTION:
+            break
+
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -367,6 +370,12 @@ def next_question(data):
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
+
+    all_answered = all(p.answered for p in room.players.values())
+    if all_answered:
+        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+        room.status = RoomStatus.CHECK_CORRECT_ANSWER
+        redis_storage.save_room(room_id, room)
 
 
 
