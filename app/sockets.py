@@ -223,9 +223,11 @@ def answer(data):
         return
 
     if room.status != RoomStatus.QUESTION:
+        print("PIZDA")
         return
 
     if room_locks.get(room_id) is None:
+        print("HYILO")
         socketio.emit("Error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
@@ -249,7 +251,7 @@ def answer(data):
         if user.answered:
             print("OKAK")
             return
-
+        print("Blat")
         past_time = time() - start_ts
         lim = getattr(current_quest, "time_limit", 0)
         if lim <= 0:
@@ -258,11 +260,12 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             return
-
+        print("EBANAT")
         if past_time <= lim:
             user.answered = True
             user.answer = answer_text
             part = lim / 4.0
+            print("SUKA")
             if answer_text == current_quest.correct_answer:
                 user.correct += 1
                 if 0 <= past_time < part:
@@ -317,9 +320,11 @@ def next_question(data):
         socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
+
     for p in room.players.values():
         p.answered=False
         p.answer=""
+
     redis_storage.save_room(room_id, room)
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -349,8 +354,11 @@ def next_question(data):
         redis_storage.set_quest_position(room_id, next_question_position)
         socketio.emit("get_quest", serialize_question(next_quest), to=room_id)
         question_start_times[room_id] = time()
-        socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
+        redis_storage.save_room(room_id, room)
+        socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
+
+
 
     all_answered = all(p.answered for p in room.players.values())
     if all_answered:
