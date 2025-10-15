@@ -102,6 +102,7 @@ def get_categories():
 
 def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
+    count_questions = min(count_questions, 50)
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
         return get_gpt_questions(count_questions, category_ids)
     sql = "SELECT * FROM questions "
