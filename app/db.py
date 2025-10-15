@@ -67,17 +67,17 @@ def create_question(category_id, text, options, correct_answer, time_limit=30):
 def save_room(room: Room):
     room_id = room.room_id
     owner_user_id = room.owner.user_id
-    end = room.timer_end
+    start = room.timer_start
     amount = len(room.questions)
-    put_room = put_to_bd("INSERT INTO rooms (id, owner, end, amount) VALUES (%s,%s,%s,%s)",
-                         (room_id, owner_user_id, end, amount))
+    put_room = put_to_bd("INSERT INTO rooms (id, owner, creation, amount) VALUES (%s,%s,%s,%s)",
+                         (room_id, owner_user_id, start, amount))
     sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
     params = []
     players: List[Player] = list(room.players.values())
-    players.sort(key=lambda x: x.score)
+    players.sort(key=lambda x: x.score, reverse=True)
     place = 1
     for player in players:
-        params.append((room_id, player.user_id, player.score, player.correct, place))
+        params.extend((room_id, player.user_id, player.score, player.correct, place))
         sql += ' (%s,%s,%s,%s,%s), '
         place += 1
     sql = sql[:-2]
