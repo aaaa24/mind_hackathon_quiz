@@ -127,7 +127,7 @@ def get_questions(count_questions, category_ids):
         return {'success': True, 'questions': None}
 
 
-def get_last_games(user_id):
+def get_past_games(user_id):
     data = get_from_bd("SELECT * FROM rooms_users WHERE user_id = %s", (user_id,))
     if data:
         games = []
