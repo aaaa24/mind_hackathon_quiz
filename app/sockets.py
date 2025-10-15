@@ -6,7 +6,7 @@ from flask_socketio import SocketIO, join_room, leave_room
 from flask import request
 
 from . import redis_storage
-from .models import RoomStatus
+from .models import RoomStatus, Question
 
 socketio = SocketIO()
 
@@ -27,6 +27,15 @@ def serialize_player(player):
         "joined_at": player.joined_at.isoformat() if player.joined_at else None
     }
 
+def serialize_question(quest: Question):
+    return {
+        "id": quest.id,
+        "text": quest.text,
+        "options": quest.options,
+        "correct_answer" : quest.correct_answer,
+        "time_limit": quest.time_limit,
+        "category_id": quest.category_id
+    }
 
 def serialize_players(players):
     return [serialize_player(player) for player in players]
@@ -72,7 +81,6 @@ def leave_game_room(data=None):
 
     user_id, room_id = result
 
-    # Преобразуем байты в строки, если нужно
     if isinstance(room_id, bytes):
         room_id = room_id.decode()
     if isinstance(user_id, bytes):
@@ -89,6 +97,7 @@ def leave_game_room(data=None):
 
     try:
         leave_room(room_id)
+        print("Leave room success")
     except Exception as e:
         print(f"Error leaving room: {e}")
         return
@@ -115,7 +124,8 @@ def leave_game_room(data=None):
         else:
             room.owner = other_players[0]
             redis_storage.save_room(room_id, room)
-            all_players_in_lobby({"room_id": room_id})
+            all_players_in_lobby({"room_id":room_id})
+        print("Player was deleted from room")
 
 
 @socketio.on("start_quiz")
@@ -152,7 +162,7 @@ def start_quiz(data):
 
     firstQuest = room.questions[0]
 
-    socketio.emit("startGame", vars(firstQuest), to=room_id)
+    socketio.emit("startGame", serialize_question(firstQuest), to=room_id)
     question_start_times[room_id] = time()
     room.status = RoomStatus.QUESTION
     socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
@@ -167,6 +177,7 @@ def answer(data):
     answer_text = data.get('answer')
     if not room_id or not user_id:
         socketio.emit("Error", {"message": "missing room_id or user_id"}, to=request.sid)
+        print("Not room_id or user_id")
         return
     # Получаем комнату из Redis
     room = redis_storage.get_room(room_id)
@@ -199,6 +210,7 @@ def answer(data):
             socketio.emit("Error", {"message": "user not in room"}, to=request.sid)
             return
         if user.answered:
+            print("OKAK")
             return
 
         past_time = time() - start_ts
@@ -227,9 +239,8 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             socketio.emit("answered",
-                          {"user_id": user_id, "correct_answered": int(answer_text == current_quest.correct_answer)},
-                          to=room_id)
-
+                          {"user_id" : user_id,"correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
+            print("New answers was fixed")
 
 def question_timer(room_id, time_limit):
     socketio.sleep(time_limit)
@@ -249,11 +260,12 @@ def question_timer(room_id, time_limit):
     current_question = room.questions[pos]
     correct_answer = current_question.correct_answer
 
-    socketio.emit("show_correct_answer", {"correct_answer": correct_answer}, to=room_id)
+    sleeptime = 5
+    socketio.emit("show_correct_answer", {"correct_answer": correct_answer, "sleep_timer" : sleeptime}, to=room_id)
     socketio.emit("need_update_leaderboard", to=room_id)
     room.status = RoomStatus.CHECK_CORRECT_ANSWER
 
-    socketio.sleep(5)
+    socketio.sleep(sleeptime)
 
     with room_locks[room_id]:
         next_question({"room_id": room_id})
@@ -268,7 +280,10 @@ def next_question(data):
         socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
-
+    for p in room.players.values():
+        p.answered=False
+        p.answer=""
+    redis_storage.save_room(room_id, room)
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
     if pos is None:
@@ -294,7 +309,7 @@ def next_question(data):
         next_quest = questions[next_question_position]
         # Обновляем позицию вопроса в Redis
         redis_storage.set_quest_position(room_id, next_question_position)
-        socketio.emit("get_quest", vars(next_quest), to=room_id)
+        socketio.emit("get_quest", serialize_question(next_quest), to=room_id)
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
