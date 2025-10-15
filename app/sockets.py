@@ -32,6 +32,7 @@ def serialize_question(quest: Question):
         "id": quest.id,
         "text": quest.text,
         "options": quest.options,
+        "correct_answer" : quest.correct_answer,
         "time_limit": quest.time_limit,
         "category_id": quest.category_id
     }
