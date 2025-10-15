@@ -163,7 +163,7 @@ def get_past_games(user_id):
             }
             games.append(game)
         return {"success": True, "games": games}
-    return {"success": False, "games": None}
+    return {"success": True, "games": []}
 
 
 def put_to_bd(sql, params=None):
