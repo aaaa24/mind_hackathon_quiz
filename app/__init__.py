@@ -1,4 +1,5 @@
- # должно стоять ПЕРВЫМ
+import eventlet
+eventlet.monkey_patch()  # должно стоять ПЕРВЫМ
 from dotenv import load_dotenv
 
 load_dotenv()
