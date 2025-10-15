@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from threading import Lock
 from time import time
 from typing import Dict
@@ -206,7 +206,7 @@ def start_quiz(data):
         player.correct = 0
         player.answer = ""
         player.answered = False
-    room.timer_start = datetime.time().isoformat()
+    room.timer_start = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Сохраняем об новлённую комнату в Redis
     redis_storage.save_room(room_id, room)
 
@@ -294,15 +294,24 @@ def answer(data):
             socketio.emit("answered",
                           {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
+    all_answered = all(p.answered for p in room.players.values())
+    if all_answered:
+        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+        room.status = RoomStatus.CHECK_CORRECT_ANSWER
+        redis_storage.save_room(room_id, room)
 
 
 def question_timer(room_id, time_limit):
-    socketio.sleep(time_limit)
+    for _ in range(time_limit):
+        socketio.sleep(1)
+        room = redis_storage.get_room(room_id)
+        if not room:
+            return
+        if room.status != RoomStatus.QUESTION:
+            break
 
     # Проверяем, не завершён ли вопрос досрочно
     room = redis_storage.get_room(room_id)
-    if not room or room.status != RoomStatus.QUESTION:
-        return
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -348,8 +357,9 @@ def next_question(data):
     if pos == len(questions) - 1:
         room.status = RoomStatus.FINISHED
         # Сохраняем обновлённую комнату в Redis
-        room.timer_end = datetime.time().isoformat()
+        room.timer_end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         redis_storage.save_room(room_id, room)
+        print(room)
         db.save_room(room)
         # Удаляем комнату из списка активных
         redis_storage.remove_active_room(room_id)
@@ -373,11 +383,7 @@ def next_question(data):
 
 
 
-    all_answered = all(p.answered for p in room.players.values())
-    if all_answered:
-        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
-        room.status = RoomStatus.CHECK_CORRECT_ANSWER
-        redis_storage.save_room(room_id, room)
+
 
 
 
