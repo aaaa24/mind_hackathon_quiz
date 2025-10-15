@@ -103,6 +103,12 @@ def get_categories():
 def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
+        category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
+        categories = get_categories()
+        for k in categories['categories']:
+            if k['id'] in category_ids:
+                category_ids.remove(k['id'])
+                category_ids.append(k['name'])
         return get_gpt_questions(count_questions, category_ids)
     sql = "SELECT * FROM questions "
     if category_ids:
