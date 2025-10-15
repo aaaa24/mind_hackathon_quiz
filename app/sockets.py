@@ -193,7 +193,7 @@ def start_quiz(data):
         player.correct = 0
         player.answer = ""
         player.answered = False
-    room.timer_start = datetime.time()
+    room.timer_start = datetime.time().isoformat()
     # Сохраняем об новлённую комнату в Redis
     redis_storage.save_room(room_id, room)
 
@@ -281,15 +281,12 @@ def answer(data):
 
 
 def question_timer(room_id, time_limit):
+    socketio.sleep(time_limit)
 
-    for _ in range(time_limit):
-        socketio.sleep(1)
-        room = redis_storage.get_room(room_id)
-        if not room:
-            return
-        if room.status != RoomStatus.QUESTION:
-            break
-
+    # Проверяем, не завершён ли вопрос досрочно
+    room = redis_storage.get_room(room_id)
+    if not room or room.status != RoomStatus.QUESTION:
+        return
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -333,7 +330,7 @@ def next_question(data):
     if pos == len(questions) - 1:
         room.status = RoomStatus.FINISHED
         # Сохраняем обновлённую комнату в Redis
-        room.timer_end = datetime.time()
+        room.timer_end = datetime.time().isoformat()
         redis_storage.save_room(room_id, room)
         db.save_room(room)
         # Удаляем комнату из списка активных
