@@ -1,4 +1,5 @@
 import secrets
+import string
 import uuid
 
 from flask import Blueprint, jsonify, request, make_response
@@ -13,7 +14,8 @@ bp = Blueprint('main', __name__)
 
 
 def generate_code(length: int = 6) -> str:
-    return secrets.token_urlsafe(length)[:length].upper()
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 @bp.route('/api/user/signup', methods=['POST'])
@@ -134,7 +136,7 @@ def join_room_by_code():
         return jsonify({'message': 'Room code is required'}), 400
 
     # Получаем room_id по коду из Redis
-    room_id = redis_storage.get_room_id_by_code(code)
+    room_id = redis_storage.get_room_id_by_code(code.upper())
     if not room_id:
         return jsonify({'message': 'Room not found'}), 404
 
