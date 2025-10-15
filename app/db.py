@@ -66,18 +66,18 @@ def create_question(category_id, text, options, correct_answer, time_limit=30):
 
 def save_room(room: Room):
     room_id = room.room_id
-    owner = room.owner
+    owner_user_id = room.owner.user_id
     end = room.timer_end
     amount = len(room.questions)
     put_room = put_to_bd("INSERT INTO rooms (id, owner, end, amount) VALUES (%s,%s,%s,%s)",
-                         (room_id, owner, end, amount))
+                         (room_id, owner_user_id, end, amount))
     sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
     params = []
     players: List[Player] = list(room.players.values())
     players.sort(key=lambda x: x.score)
     place = 1
     for player in players:
-        params.append(room_id, player.user_id, player.score, player.correct, place)
+        params.append((room_id, player.user_id, player.score, player.correct, place))
         sql += ' (%s,%s,%s,%s,%s), '
         place += 1
     sql = sql[:-2]
@@ -128,22 +128,38 @@ def get_questions(count_questions, category_ids):
 
 
 def get_past_games(user_id):
-    data = get_from_bd("SELECT * FROM rooms_users WHERE user_id = %s", (user_id,))
+    sql = """
+    SELECT
+        ru.room_id,
+        ru.score,
+        ru.correct,
+        ru.place,
+        r.amount,
+        r.creation,
+        r.end,
+        u.id AS owner_id,
+        u.username AS owner_username
+    FROM rooms_users ru
+    JOIN rooms r ON ru.room_id = r.id
+    JOIN users u ON r.owner = u.id
+    WHERE ru.user_id = %s
+    """
+    data = get_from_bd(sql, (user_id,))
     if data:
         games = []
-        for room in data:
-            room_id = room["room_id"]
-            score = room["score"]
-            correct = room["correct"]
-            room_info = get_from_bd("SELECT * FROM rooms WHERE id = %s", (room_id,))
-            owner = Player(user_id=room_info["owner"], username=get_user(room_info["owner"])["login"])
-            amount = room_info["amount"]
-            creation = room_info["creation"]
-            end = room_info["end"]
-            place = room["place"]
-            games.append(
-                {"score": score, "correct": correct, "owner": owner, "amount": amount, "creation": creation, "end": end,
-                 "place": place})
+        for row in data:
+            owner = Player(user_id=row["owner_id"], username=row["owner_username"])
+
+            game = {
+                "score": row["score"],
+                "correct": row["correct"],
+                "owner": owner,
+                "amount": row["amount"],
+                "creation": row["creation"],
+                "end": row["end"],
+                "place": row["place"]
+            }
+            games.append(game)
         return {"success": True, "games": games}
     return {"success": False, "games": None}
 

@@ -19,7 +19,7 @@ def delete_request_sid(request_sid):
 def get_request_sid_data(request_sid):
     user_id = r.get(f"sid_user:{request_sid}")
     room_id = r.get(f"sid_room:{request_sid}")
-    if (not user_id is None) and (not room_id is None):
+    if user_id is not None and room_id is not None:
         return user_id, room_id
     return None
 
@@ -81,3 +81,4 @@ def get_active_rooms():
 def clear_room_data(room_id):
     delete_room(room_id)
     delete_quest_position(room_id)
+    remove_active_room(room_id)
