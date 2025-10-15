@@ -63,3 +63,4 @@ def get_active_rooms():
 def clear_room_data(room_id):
     delete_room(room_id)
     delete_quest_position(room_id)
+    remove_active_room(room_id)
