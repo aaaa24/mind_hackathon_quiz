@@ -155,13 +155,11 @@ def get_past_games(user_id):
     if data:
         games = []
         for row in data:
-            owner = Player(user_id=row["owner_id"], username=row["owner_username"])
-
             game = {
                 "score": row["score"],
                 "correct": row["correct"],
-                "owner_id": owner.user_id,
-                "owner_username": owner.username,
+                "owner_id": row["owner_id"],
+                "owner_username": row["owner_username"],
                 "amount": row["amount"],
                 "creation": row["creation"],
                 "end": row["end"],
@@ -169,7 +167,7 @@ def get_past_games(user_id):
             }
             games.append(game)
         return {"success": True, "games": games}
-    return {"success": False, "games": None}
+    return {"success": True, "games": []}
 
 
 def put_to_bd(sql, params=None):
