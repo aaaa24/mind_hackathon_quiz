@@ -46,6 +46,7 @@ class Room:
     players: Dict[str, Player] = field(default_factory=dict)
     questions: List[Question] = field(default_factory=list)
     current_question_index: int = -1
+    timer_start: Optional[datetime] = None
     timer_end: Optional[datetime] = None
     leaderboard: List[dict] = field(default_factory=list)
     max_players: int = 10
