@@ -7,8 +7,8 @@ r = redis.Redis(host=os.getenv('REDIS_HOST'), port=int(os.getenv('REDIS_PORT')),
 
 
 def save_request_sid(request_sid, user_id, room_id):
-    r.set(f"sid_user:{request_sid}", user_id)
-    r.set(f"sid_room:{request_sid}", room_id)
+    r.set(f"sid_user:{request_sid}", user_id.encode('utf-8'))
+    r.set(f"sid_room:{request_sid}", room_id.encode('utf-8'))
 
 
 def delete_request_sid(request_sid):
@@ -19,8 +19,8 @@ def delete_request_sid(request_sid):
 def get_request_sid_data(request_sid):
     user_id = r.get(f"sid_user:{request_sid}")
     room_id = r.get(f"sid_room:{request_sid}")
-    if user_id is not None and room_id is not None:
-        return user_id, room_id
+    if (not user_id is None) and (not room_id is None):
+        return user_id.decode('utf-8'), room_id.decode('utf-8')
     return None
 
 
@@ -81,4 +81,3 @@ def get_active_rooms():
 def clear_room_data(room_id):
     delete_room(room_id)
     delete_quest_position(room_id)
-    remove_active_room(room_id)
