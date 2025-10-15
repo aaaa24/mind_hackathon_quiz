@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from threading import Lock
 from time import time
 from typing import Dict
@@ -117,6 +117,19 @@ def leave_game_room(data):
             all_players_in_lobby({"room_id":room_id})
 
 
+@socketio.on("room_status")
+def status_room(data):
+    room_id = data['room_id']
+    if room_id is None:
+        socketio.emit("Error", {"message": "This room_id doesn't exist"}, to=request.sid)
+        return
+    room = redis_storage.get_room(room_id)
+    res = {
+        "status" : room.status,
+        "question" : serialize_question(room.questions[redis_storage.get_quest_position(room_id)])
+    }
+    socketio.emit("room_status", res, to=room_id)
+
 
 @socketio.on("disconnect")
 def disconnect():
@@ -193,7 +206,7 @@ def start_quiz(data):
         player.correct = 0
         player.answer = ""
         player.answered = False
-    room.timer_start = datetime.time().isoformat()
+    room.timer_start = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Сохраняем об новлённую комнату в Redis
     redis_storage.save_room(room_id, room)
 
@@ -223,9 +236,11 @@ def answer(data):
         return
 
     if room.status != RoomStatus.QUESTION:
+        print("PIZDA")
         return
 
     if room_locks.get(room_id) is None:
+        print("HYILO")
         socketio.emit("Error", {"message": "room lock not initialized"}, to=request.sid)
         return
 
@@ -249,7 +264,7 @@ def answer(data):
         if user.answered:
             print("OKAK")
             return
-
+        print("Blat")
         past_time = time() - start_ts
         lim = getattr(current_quest, "time_limit", 0)
         if lim <= 0:
@@ -258,11 +273,12 @@ def answer(data):
             # Сохраняем обновлённую комнату в Redis
             redis_storage.save_room(room_id, room)
             return
-
+        print("EBANAT")
         if past_time <= lim:
             user.answered = True
             user.answer = answer_text
             part = lim / 4.0
+            print("SUKA")
             if answer_text == current_quest.correct_answer:
                 user.correct += 1
                 if 0 <= past_time < part:
@@ -278,15 +294,24 @@ def answer(data):
             socketio.emit("answered",
                           {"user_id" : user_id, "correct_answered": int(answer_text == current_quest.correct_answer) }, to=room_id)
             print("New answers was fixed")
+    all_answered = all(p.answered for p in room.players.values())
+    if all_answered:
+        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+        room.status = RoomStatus.CHECK_CORRECT_ANSWER
+        redis_storage.save_room(room_id, room)
 
 
 def question_timer(room_id, time_limit):
-    socketio.sleep(time_limit)
+    for _ in range(time_limit):
+        socketio.sleep(1)
+        room = redis_storage.get_room(room_id)
+        if not room:
+            return
+        if room.status != RoomStatus.QUESTION:
+            break
 
     # Проверяем, не завершён ли вопрос досрочно
     room = redis_storage.get_room(room_id)
-    if not room or room.status != RoomStatus.QUESTION:
-        return
 
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -317,9 +342,11 @@ def next_question(data):
         socketio.emit("Error", "This room doesn't exist", to=request.sid)
         return
     questions = room.questions
+
     for p in room.players.values():
         p.answered=False
         p.answer=""
+
     redis_storage.save_room(room_id, room)
     # Получаем позицию вопроса из Redis
     pos = redis_storage.get_quest_position(room_id)
@@ -330,8 +357,9 @@ def next_question(data):
     if pos == len(questions) - 1:
         room.status = RoomStatus.FINISHED
         # Сохраняем обновлённую комнату в Redis
-        room.timer_end = datetime.time().isoformat()
+        room.timer_end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         redis_storage.save_room(room_id, room)
+        print(room)
         db.save_room(room)
         # Удаляем комнату из списка активных
         redis_storage.remove_active_room(room_id)
@@ -349,14 +377,13 @@ def next_question(data):
         redis_storage.set_quest_position(room_id, next_question_position)
         socketio.emit("get_quest", serialize_question(next_quest), to=room_id)
         question_start_times[room_id] = time()
-        socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
-
-    all_answered = all(p.answered for p in room.players.values())
-    if all_answered:
-        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
-        room.status = RoomStatus.CHECK_CORRECT_ANSWER
         redis_storage.save_room(room_id, room)
+        socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
+
+
+
+
 
 
 
