@@ -145,13 +145,7 @@ def disconnect():
         print(f"No room_id found for SID: {request.sid}")
         return
 
-    try:
-        leave_room(room_id)
-        redis_storage.delete_request_sid(request.sid)
-        print("Leave room success")
-    except Exception as e:
-        print(f"Error leaving room: {e}")
-        return
+
 
     room = redis_storage.get_room(room_id)
 
@@ -163,19 +157,29 @@ def disconnect():
     if player is None:
         socketio.emit("Error", {"message": "This player doesn't exist"}, to=request.sid)
         return
-    room.players.pop(user_id, None)
-    if player.user_id == room.owner.user_id:
-        other_players = [p for p in room.players.values()]
-        if len(other_players) == 0:
-            redis_storage.clear_room_data(room_id)
-            room_locks.pop(room_id)
-            question_start_times.pop(room_id)
-            print("Room was deleted")
-        else:
-            room.owner = other_players[0]
-            redis_storage.save_room(room_id, room)
-            all_players_in_lobby({"room_id": room_id})
-        print("Player was deleted from room")
+    if room.status == RoomStatus.WAITING or room.status == RoomStatus.FINISHED:
+        try:
+            leave_room(room_id)
+            redis_storage.delete_request_sid(request.sid)
+            print("Leave room success")
+        except Exception as e:
+            print(f"Error leaving room: {e}")
+            return
+
+        room.players.pop(user_id, None)
+        if player.user_id == room.owner.user_id:
+            other_players = [p for p in room.players.values()]
+            if len(other_players) == 0:
+                redis_storage.clear_room_data(room_id)
+                room_locks.pop(room_id)
+                question_start_times.pop(room_id)
+                print("Room was deleted")
+            else:
+                room.owner = other_players[0]
+                redis_storage.save_room(room_id, room)
+                all_players_in_lobby({"room_id": room_id})
+            print("Player was deleted from room")
+
 
 
 @socketio.on("start_quiz")
@@ -296,7 +300,7 @@ def answer(data):
             print("New answers was fixed")
     all_answered = all(p.answered for p in room.players.values())
     if all_answered:
-        print(f"⏱ Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
+        print(f"Все игроки ответили — завершаем вопрос досрочно в комнате {room_id}")
         room.status = RoomStatus.CHECK_CORRECT_ANSWER
         redis_storage.save_room(room_id, room)
 
