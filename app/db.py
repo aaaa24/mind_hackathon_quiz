@@ -71,7 +71,7 @@ def save_room(room: Room):
     amount = len(room.questions)
     put_room = put_to_bd("INSERT INTO rooms (id, owner, creation, amount) VALUES (%s,%s,%s,%s)",
                          (room_id, owner_user_id, start, amount))
-    sql = 'INSERT INTO rooms_users (id, owner, end) VALUES'
+    sql = 'INSERT INTO rooms_users (room_id, user_id, score, correct, place) VALUES'
     params = []
     players: List[Player] = list(room.players.values())
     players.sort(key=lambda x: x.score, reverse=True)
@@ -82,7 +82,7 @@ def save_room(room: Room):
         place += 1
     sql = sql[:-2]
     sql += ';'
-    put_players = put_to_bd("INSERT INTO rooms_users (room_id, user_id, score, correct, place) VALUES ", params)
+    put_players = put_to_bd(sql, params)
     if put_room and put_players:
         return {'success': True}
     else:
