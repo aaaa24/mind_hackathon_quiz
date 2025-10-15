@@ -102,6 +102,7 @@ def get_categories():
 
 def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
+    count_questions = min(count_questions, 50)
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
         category_ids.remove(os.getenv('GPT_CATEGORY_ID'))
         categories = get_categories()
@@ -159,7 +160,8 @@ def get_past_games(user_id):
             game = {
                 "score": row["score"],
                 "correct": row["correct"],
-                "owner": owner,
+                "owner_id": owner.user_id,
+                "owner_username": owner.username,
                 "amount": row["amount"],
                 "creation": row["creation"],
                 "end": row["end"],
