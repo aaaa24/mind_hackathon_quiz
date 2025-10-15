@@ -6,7 +6,7 @@ from flask_socketio import SocketIO, join_room, leave_room
 from flask import request
 
 from . import redis_storage
-from .models import RoomStatus
+from .models import RoomStatus, Question
 
 socketio = SocketIO()
 
@@ -27,6 +27,14 @@ def serialize_player(player):
         "joined_at": player.joined_at.isoformat() if player.joined_at else None
     }
 
+def serialize_question(quest: Question):
+    return {
+        "id": quest.id,
+        "text": quest.text,
+        "options": quest.options,
+        "time_limit": quest.time_limit,
+        "category_id": quest.category_id
+    }
 
 def serialize_players(players):
     return [serialize_player(player) for player in players]
@@ -72,7 +80,6 @@ def leave_game_room(data=None):
 
     user_id, room_id = result
 
-    # Преобразуем байты в строки, если нужно
     if isinstance(room_id, bytes):
         room_id = room_id.decode()
     if isinstance(user_id, bytes):
@@ -154,7 +161,7 @@ def start_quiz(data):
 
     firstQuest = room.questions[0]
 
-    socketio.emit("startGame", vars(firstQuest), to=room_id)
+    socketio.emit("startGame", serialize_question(firstQuest), to=room_id)
     question_start_times[room_id] = time()
     room.status = RoomStatus.QUESTION
     socketio.start_background_task(question_timer, room_id, firstQuest.time_limit)
@@ -301,7 +308,7 @@ def next_question(data):
         next_quest = questions[next_question_position]
         # Обновляем позицию вопроса в Redis
         redis_storage.set_quest_position(room_id, next_question_position)
-        socketio.emit("get_quest", vars(next_quest), to=room_id)
+        socketio.emit("get_quest", serialize_question(next_quest), to=room_id)
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
