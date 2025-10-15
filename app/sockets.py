@@ -381,7 +381,7 @@ def next_question(data):
         next_quest = questions[next_question_position]
         # Обновляем позицию вопроса в Redis
         redis_storage.set_quest_position(room_id, next_question_position)
-        socketio.emit("get_quest", serialize_question(next_quest, pos+1), to=room_id)
+        socketio.emit("get_quest", serialize_question(next_quest, pos+2), to=room_id)
         question_start_times[room_id] = time()
         room.status = RoomStatus.QUESTION
         redis_storage.save_room(room_id, room)
