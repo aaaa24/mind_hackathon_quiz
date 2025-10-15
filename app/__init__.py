@@ -1,20 +1,19 @@
-
-
-from datetime import timedelta
-import os
-import logging
-from logging import StreamHandler
-import sys
 from dotenv import load_dotenv
-from flask import Flask
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
-from flask_socketio import SocketIO
-from app.sockets import socketio
 
 load_dotenv()
 
-# Создаём socketio-объект
+from datetime import timedelta
+import logging
+from logging import StreamHandler
+import os
+import sys
+
+from flask import Flask
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+
+from app.sockets import socketio
+from app.routes import bp
 
 
 def create_app():
@@ -29,7 +28,8 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
     JWTManager(app)
-    CORS(app, origins=['http://localhost:3000', 'http://89.223.70.57', "http://89.223.70.57:3000"], supports_credentials=True)
+    CORS(app, origins=['http://localhost:3000', 'http://89.223.70.57', "http://89.223.70.57:3000"],
+         supports_credentials=True)
 
     if not app.debug:
         stream_handler = StreamHandler(sys.stdout)
@@ -38,11 +38,8 @@ def create_app():
         app.logger.setLevel(logging.INFO)
     app.logger.info('Flask app started')
 
-    from . import sockets
-
-    from .routes import bp
     app.register_blueprint(bp)
-    
+
     redis_url = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/0"
 
     socketio.init_app(
