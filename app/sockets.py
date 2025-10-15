@@ -371,6 +371,7 @@ def next_question(data):
         question_start_times[room_id] = time()
         socketio.start_background_task(question_timer, room_id, next_quest.time_limit)
         room.status = RoomStatus.QUESTION
+        redis_storage.save_room(room_id, room)
 
 
 @socketio.on("show_result")
