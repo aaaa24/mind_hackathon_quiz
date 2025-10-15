@@ -154,7 +154,8 @@ def get_past_games(user_id):
             game = {
                 "score": row["score"],
                 "correct": row["correct"],
-                "owner": owner,
+                "owner_id": owner.user_id,
+                "owner_username": owner.username,
                 "amount": row["amount"],
                 "creation": row["creation"],
                 "end": row["end"],
