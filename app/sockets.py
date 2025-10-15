@@ -5,7 +5,7 @@ from typing import Dict
 from flask_socketio import SocketIO, join_room, leave_room
 from flask import request
 
-from . import redis_storage
+from . import redis_storage, db
 from .models import RoomStatus, Question
 
 socketio = SocketIO()
@@ -355,6 +355,7 @@ def next_question(data):
         # Удаляем комнату из списка активных
         redis_storage.remove_active_room(room_id)
         socketio.emit("endOfGame", to=room_id)
+        db.save_room(room)
         # Удаляем позицию вопроса из Redis
         redis_storage.delete_quest_position(room_id)
         # Убираем локальные данные
