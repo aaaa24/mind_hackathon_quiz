@@ -3,9 +3,8 @@ import os
 import uuid
 import re
 import json
-from app.models import  Question
+from app.models import Question
 import random
-
 
 ai_client = OpenAI(
     api_key=os.getenv('API_KEY'),
@@ -30,6 +29,7 @@ def gpt_request(system, text):
     text = response.choices[0].message.content
 
     return text
+
 
 def get_gpt_questions(count_questions, category_ids):
     if len(category_ids) == 1:

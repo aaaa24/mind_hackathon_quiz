@@ -7,6 +7,7 @@ from app.models import Room, Question, Player
 import random
 from app.gpt import get_gpt_questions
 
+
 def create_hash(password):
     salt = bcrypt.gensalt(rounds=12)
     password_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
@@ -102,7 +103,7 @@ def get_categories():
 def get_questions(count_questions, category_ids):
     if not count_questions or count_questions < 1: count_questions = 10
     if os.getenv('GPT_CATEGORY_ID') in category_ids:
-        return get_gpt_questions(count_questions,category_ids)
+        return get_gpt_questions(count_questions, category_ids)
     sql = "SELECT * FROM questions "
     if category_ids:
         placeholders = ', '.join(['%s'] * len(category_ids))
@@ -199,21 +200,19 @@ def bd_connect():
             return mydb
     return None
 
+# list_cinema = []
+
+# for i in list_cinema:
+#   print(create_question('d82480da-a911-11f0-84fc-a22ec9dbc93e', i['text'], i['options'], i['correct_answer'], i['time_limit']))
 
 
-#list_cinema = []
-
-#for i in list_cinema:
- #   print(create_question('d82480da-a911-11f0-84fc-a22ec9dbc93e', i['text'], i['options'], i['correct_answer'], i['time_limit']))
-
-
-#print(sign_in("Danil", "12345"))
-#id1 = '5436c61a-a8f1-11f0-84fc-a22ec9dbc93e'
-#id2 = '544e081f-a8f1-11f0-84fc-a22ec9dbc93e'
-#for i in range(15):
+# print(sign_in("Danil", "12345"))
+# id1 = '5436c61a-a8f1-11f0-84fc-a22ec9dbc93e'
+# id2 = '544e081f-a8f1-11f0-84fc-a22ec9dbc93e'
+# for i in range(15):
 #    print(create_question(id1, f"Test_Кино_{i} Какой фильм называют «самым известным ужастиком о душе, которая живёт в воде»?", ["«Сияние»", "«Пила»", "«Звонок»", "«Чужой»"], "Звонок", 10+i))
 #    print(create_question(id2, f"Test_Программирование_{i} Как вывести текст в консоль в python?", ["print()", "write()", "save()", "foo()", "bar()"], "print()", 10+i))
 # print(get_categories())
 # print(get_questions(5, [id1]))
 # print(get_questions(7, [id1, id2]))
-#print(get_questions(5, [os.getenv('GPT_CATEGORY_ID'), id1]))
+# print(get_questions(5, [os.getenv('GPT_CATEGORY_ID'), id1]))
